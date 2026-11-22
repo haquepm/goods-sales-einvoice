@@ -136,8 +136,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
   if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-  const [{ data: items }, { data: bank }] = await Promise.all([
+  const [{ data: items }, { data: gstProfile }, { data: bank }] = await Promise.all([
     supabase.from("goods_invoice_items").select("*").eq("invoice_id", id).order("line_number"),
+    supabase.from("business_gst_settings").select("*").eq("business_id", businessId).maybeSingle(),
     supabase
       .from("business_bank_accounts")
       .select("account_holder_name,bank_name,account_number,ifsc_code,branch_name")
@@ -146,7 +147,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .maybeSingle(),
   ]);
 
-  const seller = { ...biz, ...(invoice.seller_snapshot || {}) } as R;
+  // Current seller profile fills fields omitted from older invoice snapshots; snapshot values remain authoritative when present.
+  const seller = { ...biz, ...(invoice.seller_snapshot || {}), ...(gstProfile || {}) } as R;
   const buyer = (invoice.buyer_snapshot || {}) as R;
   const delivery = (invoice.delivery_details || {}) as R;
   const transport = (invoice.transport_details || {}) as R;
@@ -223,6 +225,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       });
   };
 
+  const wrappedText = (value: unknown, x: number, y: number, w: number, opts: R = {}) => {
+    const fontName = opts.bold && opts.italic ? "Helvetica-BoldOblique" : opts.bold ? "Helvetica-Bold" : opts.italic ? "Helvetica-Oblique" : "Helvetica";
+    const size = opts.size ?? 8.2;
+    const lineGap = opts.lineGap ?? 0.6;
+    doc.font(fontName).fontSize(size);
+    const h = doc.heightOfString(s(value), { width: w, lineGap });
+    text(value, x, y, w, opts);
+    return Math.max(size + lineGap, h) + (opts.afterGap ?? 0);
+  };
+
   // ==================== 1. HEADER & IRN / HIGH-DENSITY QR SECTION ====================
   const irnCode = s(invoice.generated_irn || einv.irn || invoice.irn);
   const ackNo = s(
@@ -294,11 +306,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     text(":", irnColonX, irnY, 6, { size: 8.2 });
     text(irnFormatted, irnColonX + 5, irnY, 260, { bold: true, size: 8, lineGap: 0.9 });
   }
-  if (ackNo || irnCode) {
-    text("Ack No.", L + 2, irnY + 20, 44, { size: 8.2 });
-    text(":", irnColonX, irnY + 20, 6, { size: 8.2 });
-    text(ackNo || "-", irnColonX + 5, irnY + 20, 240, { bold: true, size: 8.2 });
-  }
+  text("Ack No.", L + 2, irnY + 20, 44, { size: 8.2 });
+  text(":", irnColonX, irnY + 20, 6, { size: 8.2 });
+  text(ackNo || "-", irnColonX + 5, irnY + 20, 240, { bold: true, size: 8.2 });
   if (ackDate || irnCode) {
     text("Ack Date", L + 2, irnY + 30.5, 44, { size: 8.2 });
     text(":", irnColonX, irnY + 30.5, 6, { size: 8.2 });
@@ -316,13 +326,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const rightX = L + leftW;
   const midRightX = rightX + rightW / 2;
 
+  const buyerDeliveryAddress = buyer.shipping_address || buyer.billing_address || buyer.address;
   const destinationVal = s(
     transport.destination ||
       delivery.destination ||
       delivery.place_of_delivery ||
       delivery.to_place ||
-      invoice.destination
-  );
+      invoice.destination ||
+      (typeof buyerDeliveryAddress === "object"
+        ? [buyerDeliveryAddress.city, buyerDeliveryAddress.district, buyerDeliveryAddress.state].filter(Boolean).join(", ")
+        : "")
+  ) || "-";
 
   const metaPairs: [[string, string], [string, string]][] = [
     [
@@ -355,14 +369,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     ],
   ];
 
-  const sellerAddr = addressLines(
-    seller.address ||
-      seller.registered_address ||
-      seller.registered_office_address ||
-      seller.business_address ||
-      seller.full_address,
-    true
-  );
+  const sellerAddr = addressLines(seller, true);
   const sellerState = resolveState(seller);
   const sellerMsme = s(seller.msme_number || seller.udyam_number || seller.udyam_no || seller.msme);
 
@@ -382,11 +389,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   // Render Seller Block (9pt Bold name, 8.2pt details)
   let py = gridY + 3.5;
-  text(s(seller.legal_name || seller.business_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
-  py += 11;
+  py += wrappedText(seller.legal_name || seller.business_name, L + 4, py, leftW - 8, { bold: true, size: 9 });
   sellerAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 8.2 });
-    py += 9.6;
+    py += wrappedText(line, L + 4, py, leftW - 8, { size: 8.2 });
   });
   if (sellerMsme) {
     text(`MSME: ${sellerMsme}`, L + 4, py, leftW - 8, { size: 8.2 });
@@ -410,11 +415,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   py = consigneeY + 3;
   text("Consignee (Ship to)", L + 4, py, leftW - 8, { size: 7.8 });
   py += 9.8;
-  text(s(delivery.name || buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
-  py += 10.5;
+  py += wrappedText(delivery.name || buyer.legal_name, L + 4, py, leftW - 8, { bold: true, size: 9 });
   consigneeAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 8.2 });
-    py += 9.6;
+    py += wrappedText(line, L + 4, py, leftW - 8, { size: 8.2 });
   });
   if (consigneeGstin) {
     text("GSTIN/UIN", L + 4, py, 60, { size: 8.2 });
@@ -436,11 +439,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   py = buyerY + 3;
   text("Buyer (Bill to)", L + 4, py, leftW - 8, { size: 7.8 });
   py += 9.8;
-  text(s(buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
-  py += 10.5;
+  py += wrappedText(buyer.legal_name, L + 4, py, leftW - 8, { bold: true, size: 9 });
   buyerAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 8.2 });
-    py += 9.6;
+    py += wrappedText(line, L + 4, py, leftW - 8, { size: 8.2 });
   });
   if (buyerGstin) {
     text("GSTIN/UIN", L + 4, py, 60, { size: 8.2 });

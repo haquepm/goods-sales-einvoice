@@ -151,5 +151,5 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  for(let i=range.start;i<range.start+range.count;i++){doc.switchToPage(i);doc.font("Helvetica").fontSize(6).fillColor("#555").text("This is a computer generated invoice",L,814,{width:W,align:"center"});doc.text("Page "+(i+1)+" of "+range.count,R-75,814,{width:75,align:"right"});}
  doc.end();
  const pdf=await pdfPromise;
- return new NextResponse(new Uint8Array(pdf),{status:200,headers:{"Content-Type":"application/pdf","Content-Disposition":'inline; filename="'+invoice.invoice_number.replace(/[^a-zA-Z0-9._-]/g,"_")+'.pdf"',"Cache-Control":"private, no-store"}});
+ return new NextResponse(new Uint8Array(pdf),{status:200,headers:{"Content-Type":"application/pdf","Content-Disposition":'attachment; filename="'+invoice.invoice_number.replace(/[^a-zA-Z0-9._-]/g,"_")+'.pdf"',"Cache-Control":"private, no-store"}});
 }

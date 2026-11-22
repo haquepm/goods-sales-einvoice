@@ -137,9 +137,21 @@ Customer/buyer is selected once before upload and applied to every eligible row.
 - Backup/restore exercise
 - Security review, GST/IRP compliance review and user acceptance testing
 
-## Configuration
+## Supabase environment
 
-Create a local `.env.local` from `.env.example`. Never commit real secrets.
+The development database is the existing Crescent Subcontractor Billing Supabase project (`iqltunrvlosxdxucibef`, ap-south-1). This application has its own tenant tables and RLS policies; it does not reuse subcontractor-billing tables. The schema migrations are in `supabase/migrations/` and have been applied to the linked project.
+
+Create a local `.env.local` from `.env.example`, then add the project's publishable/legacy anon key locally. The service-role key is optional for narrowly scoped server-side jobs and must never be exposed to the browser. Never commit real secrets.
+
+### Database migrations applied
+
+1. `202611220001_initial_tenant_foundation.sql`
+2. `202611220002_business_owner_bootstrap.sql`
+3. `202611220003_goods_sales_operations.sql`
+4. `202611220004_tenant_integrity_guards.sql`
+5. `202611220005_restrict_tenant_helper_rpc.sql`
+
+All new application tables have RLS enabled. Business-scoped relationships are guarded against cross-tenant customer/product/invoice references. New public tables receive explicit authenticated Data API grants; anonymous access is not granted.
 
 ## Important scope note
 

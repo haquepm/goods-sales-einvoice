@@ -746,29 +746,28 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const sigY = y + footerBoxH - sigH; // y + 64
   hline(sigY, sigX, RIGHT);
   vline(sigX, sigY, y + footerBoxH);
-  text("for " + s(seller.legal_name || seller.business_name), sigX + 4, sigY + 4, sigW - 10, {
-    bold: true,
-    size: 8.5,
-    align: "right",
-  });
-  text("Authorised Signatory", sigX + 4, sigY + sigH - 13, sigW - 10, { size: 8.1, align: "right" });
-
-  // Business-specific seal & signature PNG from private Supabase Storage.
+  // Business-specific seal/signature is drawn first so the printed text remains in front.
   try {
     const { data: sealFile } = await supabase.storage
       .from("invoice-assets")
       .download(`${businessId}/seal-signature.png`);
     if (sealFile) {
       const sealBuffer = Buffer.from(await sealFile.arrayBuffer());
-      doc.image(sealBuffer, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
+      doc.save().opacity(0.42).image(sealBuffer, sigX + 8, sigY - 24, { fit: [112, 66], align: "center", valign: "center" }).restore();
     } else {
-      // Backward-compatible fallback for deployments still using the old static asset.
       const sealPath = path.join(process.cwd(), "public", "images", "seal-signature.png");
-      if (fs.existsSync(sealPath)) doc.image(sealPath, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
+      if (fs.existsSync(sealPath)) doc.save().opacity(0.42).image(sealPath, sigX + 8, sigY - 24, { fit: [112, 66], align: "center", valign: "center" }).restore();
     }
   } catch {
     /* keep invoice generation working if no seal has been uploaded */
   }
+
+  text("for " + s(seller.legal_name || seller.business_name), sigX + 4, sigY + 4, sigW - 10, {
+    bold: true,
+    size: 8.5,
+    align: "right",
+  });
+  text("Authorised Signatory", sigX + 4, sigY + sigH - 13, sigW - 10, { size: 8.1, align: "right" });
 
   // Bottom Centered Note outside border
   text("This is a Computer Generated Invoice", L, y + footerBoxH + 4.5, W, { size: 8, align: "center" });

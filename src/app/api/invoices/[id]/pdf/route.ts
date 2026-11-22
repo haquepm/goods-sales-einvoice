@@ -8,6 +8,8 @@ export const dynamic="force-dynamic";
 
 // PDFKit snapshot payloads are database JSON values with dynamic keys.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// PDFKit snapshot payloads are database JSON values with dynamic keys.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow=Record<string,any>;
 const money=(v:unknown)=>Number(v||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
 const safe=(v:unknown)=>String(v??"").trim();

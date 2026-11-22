@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { updateProduct } from "../actions";
+import { updateProduct } from "../../actions";
 
 export const dynamic = "force-dynamic";
 

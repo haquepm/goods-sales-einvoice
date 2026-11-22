@@ -753,10 +753,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .download(`${businessId}/seal-signature.png`);
     if (sealFile) {
       const sealBuffer = Buffer.from(await sealFile.arrayBuffer());
-      doc.save().opacity(0.42).image(sealBuffer, sigX + 8, sigY - 24, { fit: [112, 66], align: "center", valign: "center" }).restore();
+      doc.image(sealBuffer, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
     } else {
       const sealPath = path.join(process.cwd(), "public", "images", "seal-signature.png");
-      if (fs.existsSync(sealPath)) doc.save().opacity(0.42).image(sealPath, sigX + 8, sigY - 24, { fit: [112, 66], align: "center", valign: "center" }).restore();
+      if (fs.existsSync(sealPath)) doc.image(sealPath, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
     }
   } catch {
     /* keep invoice generation working if no seal has been uploaded */

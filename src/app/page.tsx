@@ -36,13 +36,13 @@ export default function DashboardPage() {
         </div>
         <div className="sidebar-note">
           <strong>Getting started</strong><br />
-          Connect your business profile and Supabase project to activate invoice operations.
+          Your tenant database is provisioned. Add the local publishable key to activate sign-in.
         </div>
       </aside>
       <main className="main">
         <header className="topbar">
           <div className="crumb">Workspace&nbsp; / &nbsp;<strong>Dashboard</strong></div>
-          <div className="top-actions"><div className="workspace">Business workspace · Not connected</div><div className="avatar">GI</div></div>
+          <div className="top-actions"><div className="workspace">Database ready · App key pending</div><div className="avatar">GI</div></div>
         </header>
         <section className="content">
           <div className="header-row">
@@ -59,7 +59,7 @@ export default function DashboardPage() {
             ))}
           </div>
           <div className="panel">
-            <div className="panel-head"><div className="panel-title">Recent invoices</div><div className="panel-hint">Connect Supabase to load records</div></div>
+            <div className="panel-head"><div className="panel-title">Recent invoices</div><div className="panel-hint">Invoice data appears after sign-in</div></div>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>INVOICE NO.</th><th>DATE</th><th>CUSTOMER</th><th>AMOUNT</th><th>IRP STATUS</th></tr></thead>
@@ -80,8 +80,8 @@ export default function DashboardPage() {
               <div className="panel-head"><div className="panel-title">System setup</div><span className="status pending">In progress</span></div>
               <div className="quick-list">
                 <div className="quick-item"><div className="quick-icon">1</div><div><div className="quick-title">Project foundation</div><div className="quick-sub">Repository and application shell</div></div></div>
-                <div className="quick-item"><div className="quick-icon">2</div><div><div className="quick-title">Supabase connection</div><div className="quick-sub">Awaiting project configuration</div></div></div>
-                <div className="quick-item"><div className="quick-icon">3</div><div><div className="quick-title">Business registration</div><div className="quick-sub">Next after database setup</div></div></div>
+                <div className="quick-item"><div className="quick-icon">2</div><div><div className="quick-title">Database schema</div><div className="quick-sub">Tenant tables and access policies applied</div></div></div>
+                <div className="quick-item"><div className="quick-icon">3</div><div><div className="quick-title">App credentials</div><div className="quick-sub">Add publishable key to local environment</div></div></div>
               </div>
             </div>
           </div>

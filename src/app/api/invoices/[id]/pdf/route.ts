@@ -489,12 +489,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   // Bank Details (Right half)
   const bankX = L + 255;
   text("Company's Bank Details", bankX, y + 18, W - 260, { size: 7.3 });
-  const bankPairs: [string, string][] = [
+  const bankPairs = ([
     ["A/c Holder's Name", s(bank?.account_holder_name || seller.legal_name)],
     ["Bank Name", s(bank?.bank_name)],
     ["A/c No.", s(bank?.account_number)],
     ["Branch & IFS Code", [s(bank?.branch_name), s(bank?.ifsc_code)].filter(Boolean).join(" & ")],
-  ].filter(([, val]) => Boolean(val));
+  ] as [string, string][]).filter(([, val]) => Boolean(val));
 
   bankPairs.forEach(([k, v], i) => {
     const by = y + 28 + i * 9.5;

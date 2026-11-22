@@ -73,7 +73,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const header=(first:boolean)=>{
   txt(invoice.status==="irp_registered"?"TAX INVOICE":"DRAFT - NOT A TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
   if(first&&qrBuffer)doc.image(qrBuffer,R-67,24,{fit:[62,62]});
-  if(invoice.irn){txt("e-Invoice  |  IRN: "+invoice.irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=12;}
+  if(invoice.status==="irp_registered"&&invoice.irn){txt("e-Invoice  |  IRN: "+invoice.irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=12;}
   line(y);y+=5;
   const top=y;
   box(L,top,W,first?72:45);
@@ -84,7 +84,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
   const metaX=L+260;
   txt("Invoice No.",metaX,top+5,90,{bold:true,size:6.5});txt(invoice.invoice_number,metaX+95,top+5,145,{bold:true,size:7});
   txt("Dated",metaX,top+19,90,{bold:true,size:6.5});txt(new Date(invoice.invoice_date+"T00:00:00").toLocaleDateString("en-IN"),metaX+95,top+19,145,{size:7});
-  txt("Financial Year",metaX,top+33,90,{bold:true,size:6.5});txt(invoice.financial_year,metaX+95,top+33,145,{size:7});
+  txt("Financial Year",metaX,top+33,90,{bold:true,size:6.5});txt(invoice.financial_year,metaX+95,top+33,145,{size:7});\n  txt("E-Way Bill No.",metaX,top+47,90,{bold:true,size:6.5});txt(transport.eway_bill_number||"—",metaX+95,top+47,145,{size:7});
   if(first){txt("E-Mail: "+safe(seller.email)+"   Phone: "+safe(seller.phone),L+6,top+63,245,{size:6.3});}
   y=top+(first?72:45);
  };

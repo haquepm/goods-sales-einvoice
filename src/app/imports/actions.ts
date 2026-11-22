@@ -40,7 +40,7 @@ export async function previewExcelImport(formData:FormData){
  ]);
  if(!customer||!customer.data||products.error||products.data?.length!==3)redirect("/imports?error=Select%20an%20active%20customer%20and%20three%20valid%20products");
  const workbook=new ExcelJS.Workbook();
- try{await workbook.xlsx.load(await file.arrayBuffer() as any);}catch{redirect("/imports?error=Unable%20to%20read%20this%20Excel%20file");}
+ try{await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()));}catch{redirect("/imports?error=Unable%20to%20read%20this%20Excel%20file");}
  const sheet=workbook.worksheets[0];if(!sheet||sheet.rowCount<2)redirect("/imports?error=The%20first%20worksheet%20has%20no%20data");
  const headers=new Map<string,number>();
  sheet.getRow(1).eachCell((cell,col)=>headers.set(headerKey(cell.value),col));
@@ -49,7 +49,8 @@ export async function previewExcelImport(formData:FormData){
  const c12=find("12MM");const c20=find("20MM");const cSand=find("MSAND");
  if(!cDate||!cSupplier||!cVehicle||!c12||!c20||!cSand)redirect("/imports?error=Required%20columns%20not%20found.%20Use%20DATE,%20NAME%20OF%20SUPPLIER,%20VEHICLE%20NUMBER,%2012%20MM,%2020%20MM,%20M-SAND");
  const mappings=[{key:"12 MM",product_id:parsed.data.product_12mm,col:c12},{key:"20 MM",product_id:parsed.data.product_20mm,col:c20},{key:"M-SAND",product_id:parsed.data.product_msand,col:cSand}];
- const rows:any[]=[];let eligible=0,skipped=0,errors=0;
+ type ImportRow={source_row_number:number;source_date:string|null;material_supplier:string;vehicle_number:string;unit_code:string;materials:Record<string,{product_id:string;quantity:number}>;validation_status:"eligible"|"skipped"|"error";validation_message:string};
+ const rows:ImportRow[]=[];let eligible=0,skipped=0,errors=0;
  for(let rowNo=2;rowNo<=sheet.rowCount;rowNo++){
   const row=sheet.getRow(rowNo);if(row.cellCount===0)continue;
   const raw=[c12,c20,cSand].map(col=>row.getCell(col).value);
@@ -59,7 +60,8 @@ export async function previewExcelImport(formData:FormData){
   if(!hasQty){rows.push({source_row_number:rowNo,source_date:excelDate(row.getCell(cDate).value),material_supplier:clean(row.getCell(cSupplier).value),vehicle_number:clean(row.getCell(cVehicle).value),unit_code:clean(row.getCell(cUnit||1).value)||"TON",materials:{},validation_status:"skipped",validation_message:"All material quantities are zero or blank."});skipped++;continue;}
   const date=excelDate(row.getCell(cDate).value);
   if(!date||quantities.some(v=>v<0)||quantities.some(v=>!Number.isFinite(v))){rows.push({source_row_number:rowNo,source_date:date,material_supplier:clean(row.getCell(cSupplier).value),vehicle_number:clean(row.getCell(cVehicle).value),unit_code:clean(row.getCell(cUnit||1).value)||"TON",materials:{},validation_status:"error",validation_message:"Invalid date or negative/invalid quantity."});errors++;continue;}
-  const materials=Object.fromEntries(mappings.map((m,i)=>[m.key,{product_id:m.product_id,quantity:quantities[i]}]).filter(([,v]:any)=>v.quantity>0));
+  const materials:Record<string,{product_id:string;quantity:number}>={};
+  mappings.forEach((m,i)=>{if(quantities[i]>0)materials[m.key]={product_id:m.product_id,quantity:quantities[i]};});
   rows.push({source_row_number:rowNo,source_date:date,material_supplier:clean(row.getCell(cSupplier).value),vehicle_number:clean(row.getCell(cVehicle).value),unit_code:clean(row.getCell(cUnit||1).value)||"TON",materials,validation_status:"eligible",validation_message:"Ready to generate one draft invoice for this row."});eligible++;
  }
  if(!rows.length)redirect("/imports?error=No%20data%20rows%20found");

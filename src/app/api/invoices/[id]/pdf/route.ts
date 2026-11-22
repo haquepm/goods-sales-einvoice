@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
@@ -226,7 +228,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   };
 
   const wrappedText = (value: unknown, x: number, y: number, w: number, opts: R = {}) => {
-    const fontName = opts.bold && opts.italic ? "Helvetica-BoldOblique" : opts.bold ? "Helvetica-Bold" : opts.italic ? "Helvetica-Oblique" : "Helvetica";
+    const fontName =
+      opts.bold && opts.italic
+        ? "Helvetica-BoldOblique"
+        : opts.bold
+          ? "Helvetica-Bold"
+          : opts.italic
+            ? "Helvetica-Oblique"
+            : "Helvetica";
     const size = opts.size ?? 8.2;
     const lineGap = opts.lineGap ?? 0.6;
     doc.font(fontName).fontSize(size);
@@ -327,8 +336,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const rightX = L + leftW;
   const midRightX = rightX + rightW / 2;
 
-  const buyerDeliveryAddress = buyer.shipping_address || buyer.billing_address || buyer.address;
-  const destinationVal = "BRAHMAPURAM";
+  const destinationVal = s(
+    transport.destination ||
+      delivery.destination ||
+      delivery.place_of_delivery ||
+      delivery.to_place ||
+      invoice.destination ||
+      "BRAHMAPURAM"
+  );
 
   const metaPairs: [[string, string], [string, string]][] = [
     [
@@ -361,7 +376,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     ],
   ];
 
-  const sellerAddr = addressLines(seller, true);
+  const sellerAddr = addressLines(
+    seller.address ||
+      seller.registered_address ||
+      seller.registered_office_address ||
+      seller.business_address ||
+      seller.full_address ||
+      seller,
+    true
+  );
   const sellerState = resolveState(seller);
   const sellerMsme = s(seller.msme_number || seller.udyam_number || seller.udyam_no || seller.msme);
 
@@ -720,7 +743,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   // Authorised Signatory Box (Bottom Right, aligned flush with Bank Details left margin)
   const sigH = 44;
-  const sigY = y + footerBoxH - sigH; // y + 64 (cleanly below Branch & IFS Code at y + 50)
+  const sigY = y + footerBoxH - sigH; // y + 64
   hline(sigY, sigX, RIGHT);
   vline(sigX, sigY, y + footerBoxH);
   text("for " + s(seller.legal_name || seller.business_name), sigX + 4, sigY + 4, sigW - 10, {
@@ -729,6 +752,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     align: "right",
   });
   text("Authorised Signatory", sigX + 4, sigY + sigH - 13, sigW - 10, { size: 8.1, align: "right" });
+
+  // Optional Seal & Signature Stamp Overlay (save transparent PNG at public/images/seal-signature.png)
+  try {
+    const sealPath = path.join(process.cwd(), "public", "images", "seal-signature.png");
+    if (fs.existsSync(sealPath)) {
+      doc.image(sealPath, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
+    }
+  } catch {
+    /* ignore if seal image is missing */
+  }
 
   // Bottom Centered Note outside border
   text("This is a Computer Generated Invoice", L, y + footerBoxH + 4.5, W, { size: 8, align: "center" });

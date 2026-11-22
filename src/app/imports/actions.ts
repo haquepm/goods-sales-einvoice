@@ -52,8 +52,9 @@ export async function previewExcelImport(formData:FormData){
  const rows:any[]=[];let eligible=0,skipped=0,errors=0;
  for(let rowNo=2;rowNo<=sheet.rowCount;rowNo++){
   const row=sheet.getRow(rowNo);if(row.cellCount===0)continue;
-  const raw=[c12,c20,cSand].map(col=>Number(row.getCell(col).value||0));
-  const quantities=raw.map(v=>Number.isFinite(v)?v:0);
+  const raw=[c12,c20,cSand].map(col=>row.getCell(col).value);
+  const parsedQty=raw.map(v=>clean(v)===""?0:Number(v));
+  const quantities=parsedQty;
   const hasQty=quantities.some(v=>v>0);
   if(!hasQty){rows.push({source_row_number:rowNo,source_date:excelDate(row.getCell(cDate).value),material_supplier:clean(row.getCell(cSupplier).value),vehicle_number:clean(row.getCell(cVehicle).value),unit_code:clean(row.getCell(cUnit||1).value)||"TON",materials:{},validation_status:"skipped",validation_message:"All material quantities are zero or blank."});skipped++;continue;}
   const date=excelDate(row.getCell(cDate).value);
@@ -74,6 +75,9 @@ export async function generateBatchInvoices(formData:FormData){
  const {supabase,businessId}=await context();
  const {data:batch}=await supabase.from("bulk_import_batches").select("*").eq("id",batchId).eq("business_id",businessId).maybeSingle();
  if(!batch||batch.status==="completed")redirect("/imports/"+batchId);
+ const {data:customer}=await supabase.from("customers").select("gstin,state_code").eq("id",batch.customer_id).eq("business_id",businessId).maybeSingle();
+ if(!customer)redirect("/imports/"+batchId+"?error=Selected%20customer%20could%20not%20be%20loaded");
+ const supplyType=customer.gstin?"B2B":"B2C";
  const {data:rows,error}=await supabase.from("bulk_import_rows").select("*").eq("batch_id",batchId).eq("validation_status","eligible").order("source_row_number");
  if(error||!rows?.length)redirect("/imports/"+batchId+"?error=No%20eligible%20rows%20to%20generate");
  await supabase.from("bulk_import_batches").update({status:"generating"}).eq("id",batchId);
@@ -82,7 +86,7 @@ export async function generateBatchInvoices(formData:FormData){
   const mats=row.materials as Record<string,{product_id:string;quantity:number}>;
   const items=Object.values(mats).filter(m=>m.quantity>0).map(m=>({product_id:m.product_id,quantity:m.quantity,unit_rate:null,discount_amount:0}));
   if(!items.length){failed++;continue;}
-  const {data:invoiceId,error:invoiceError}=await supabase.rpc("create_goods_invoice_draft",{p_business_id:businessId,p_customer_id:batch.customer_id,p_invoice_date:row.source_date,p_supply_type:"B2B",p_items:items,p_delivery_details:{material_supplier:row.material_supplier,source_excel_row:row.source_row_number},p_transport_details:{vehicle_number:row.vehicle_number,unit_code:row.unit_code}});
+  const {data:invoiceId,error:invoiceError}=await supabase.rpc("create_goods_invoice_draft",{p_business_id:businessId,p_customer_id:batch.customer_id,p_invoice_date:row.source_date,p_supply_type:supplyType,p_items:items,p_delivery_details:{material_supplier:row.material_supplier,source_excel_row:row.source_row_number},p_transport_details:{vehicle_number:row.vehicle_number,unit_code:row.unit_code}});
   if(invoiceError||!invoiceId){failed++;await supabase.from("bulk_import_rows").update({validation_status:"error",validation_message:"Invoice generation failed. Check customer GST details and product setup."}).eq("id",row.id);continue;}
   const {error:updateError}=await supabase.from("bulk_import_rows").update({validation_status:"generated",invoice_id:invoiceId,validation_message:"Draft invoice generated."}).eq("id",row.id);
   if(updateError)failed++;else generated++;

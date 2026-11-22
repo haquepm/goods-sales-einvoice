@@ -4,6 +4,8 @@ import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
+// PDF snapshots and PDFKit layout options are intentionally dynamic database records.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R=Record<string, any>;
 const s=(v:unknown)=>String(v??"").trim();
 const n=(v:unknown)=>Number(v||0);

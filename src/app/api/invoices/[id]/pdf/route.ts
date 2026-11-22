@@ -322,47 +322,38 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   // ==================== 3. LINE ITEMS TABLE ====================
   let y = gridY + topGridH;
-  // Exact column widths summing to 538.58pt
   const colWidths = [24, 232.58, 52, 72, 54, 26, 78];
   const colX: number[] = [];
-  colWidths.reduce((acc, w) => {
-    colX.push(acc);
-    return acc + w;
-  }, L);
-
+  colWidths.reduce((acc, w) => { colX.push(acc); return acc + w; }, L);
+  const tableBottom = 760;
   const drawItemsHeader = () => {
     const hh = 22;
     box(L, y, W, hh);
     colX.slice(1).forEach((x) => vline(x, y, y + hh));
-    const heads = ["Sl\nNo.", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount"];
-    heads.forEach((h, i) => {
-      text(h, colX[i] + 2, y + (i === 0 ? 2 : 6), colWidths[i] - 4, {
-        size: 7.5,
-        align: "center",
-      });
-    });
+    const heads = ["Sl\\nNo.", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount"];
+    heads.forEach((h, i) => text(h, colX[i] + 2, y + (i === 0 ? 2 : 6), colWidths[i] - 4, { size: 7.5, align: "center" }));
     y += hh;
   };
-
-  const itemsStartY = y;
+  const drawTableRow = (height: number) => {
+    box(L, y, W, height);
+    colX.slice(1).forEach((x) => vline(x, y, y + height));
+  };
+  const startNewItemsPage = () => {
+    doc.addPage({ size: "A4", margin: 28.35 });
+    y = 36;
+    text("Tax Invoice - " + s(invoice.invoice_number), L, 20, W, { bold: true, size: 9, align: "center" });
+    drawItemsHeader();
+  };
   drawItemsHeader();
-
-  rows.forEach((item, index) => {
+  for (let index = 0; index < rows.length; index++) {
+    const item = rows[index];
     const desc = s(item.description);
     doc.font("Helvetica-Bold").fontSize(8);
     const descH = doc.heightOfString(desc, { width: colWidths[1] - 8 });
-    const rowH = Math.max(18, descH + 8);
-
-    if (y + rowH + 140 > 790) {
-      // Close vertical lines on current page before breaking
-      colX.slice(1).forEach((x) => vline(x, itemsStartY, y));
-      doc.addPage({ size: "A4", margin: 28.35 });
-      y = 28.35;
-      drawItemsHeader();
-    }
-
+    const rowH = Math.max(18, Math.ceil(descH + 8));
+    if (y + rowH + 92 > tableBottom) startNewItemsPage();
+    drawTableRow(rowH);
     const qtyWithUnit = `${n(item.quantity).toFixed(3)} ${s(item.unit_code)}`.trim();
-
     text(String(index + 1), colX[0] + 2, y + 4, colWidths[0] - 4, { size: 7.8, align: "center" });
     text(desc, colX[1] + 4, y + 4, colWidths[1] - 8, { bold: true, size: 8 });
     text(s(item.hsn_code), colX[2] + 2, y + 4, colWidths[2] - 4, { size: 7.8, align: "center" });
@@ -370,55 +361,38 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     text(money(item.unit_rate), colX[4] + 2, y + 4, colWidths[4] - 6, { size: 7.8, align: "right" });
     text(s(item.unit_code), colX[5] + 2, y + 4, colWidths[5] - 4, { size: 7.5, align: "center" });
     text(money(item.taxable_value), colX[6] + 2, y + 4, colWidths[6] - 6, { bold: true, size: 8, align: "right" });
-
     y += rowH;
-  });
-
-  // Tax rows inside Description column (Tally style)
-  y += 10;
+  }
   const hasIgst = n(invoice.igst_total) > 0;
-  const sampleRate = rows[0] ? n(rows[0].gst_rate) : 5;
+  const sampleRate = rows.length ? n(rows[0].gst_rate) : 5;
   const taxLines: [string, string, number][] = hasIgst
     ? [[`IGST @${sampleRate}% OUTPUT TAX`, sampleRate.toFixed(2), n(invoice.igst_total)]]
     : [
         [`CGST @${sampleRate / 2}% OUTPUT TAX`, (sampleRate / 2).toFixed(2), n(invoice.cgst_total)],
         [`SGST @${sampleRate / 2}% OUTPUT TAX`, (sampleRate / 2).toFixed(2), n(invoice.sgst_total)],
       ];
-
-  taxLines.forEach(([label, rateStr, amt]) => {
-    text(label, colX[1] + 4, y + 2, colWidths[1] - 8, { italic: true, size: 8, align: "right" });
-    text(rateStr, colX[4] + 2, y + 2, colWidths[4] - 6, { size: 7.8, align: "right" });
-    text("%", colX[5] + 2, y + 2, colWidths[5] - 4, { size: 7.5, align: "center" });
-    text(money(amt), colX[6] + 2, y + 2, colWidths[6] - 6, { bold: true, size: 8, align: "right" });
-    y += 14;
-  });
-
-  // Maintain Tally's open vertical spacing before Total row
-  const minItemsBottom = 465;
-  if (y < minItemsBottom) y = minItemsBottom;
-
-  // Draw outer box and continuous vertical column dividers for entire items section
-  box(L, itemsStartY, W, y - itemsStartY);
-  colX.slice(1).forEach((x) => vline(x, itemsStartY, y));
-
-  // Total Row
+  y += 10;
+  for (const [label, rateStr, amt] of taxLines) {
+    if (y + 18 + 92 > tableBottom) startNewItemsPage();
+    drawTableRow(18);
+    text(label, colX[1] + 4, y + 3, colWidths[1] - 8, { italic: true, size: 8, align: "right" });
+    text(rateStr, colX[4] + 2, y + 3, colWidths[4] - 6, { size: 7.8, align: "right" });
+    text("%", colX[5] + 2, y + 3, colWidths[5] - 4, { size: 7.5, align: "center" });
+    text(money(amt), colX[6] + 2, y + 3, colWidths[6] - 6, { bold: true, size: 8, align: "right" });
+    y += 18;
+  }
+  if (y < 465) {
+    drawTableRow(465 - y);
+    y = 465;
+  }
   const totalH = 18;
-  box(L, y, W, totalH);
-  colX.slice(1).forEach((x) => vline(x, y, y + totalH));
-
+  if (y + totalH + 115 > 805) startNewItemsPage();
+  drawTableRow(totalH);
   const totalQty = rows.reduce((sum, item) => sum + n(item.quantity), 0);
-  const firstUnit = rows[0] ? s(rows[0].unit_code) : "";
+  const firstUnit = rows.length ? s(rows[0].unit_code) : "";
   text("Total", colX[1] + 4, y + 4.5, colWidths[1] - 8, { size: 8, align: "right" });
-  text(`${totalQty.toFixed(3)} ${firstUnit}`.trim(), colX[3] + 2, y + 4.5, colWidths[3] - 6, {
-    bold: true,
-    size: 7.8,
-    align: "right",
-  });
-  text("Rs. " + money(invoice.grand_total), colX[6] + 2, y + 4, colWidths[6] - 6, {
-    bold: true,
-    size: 8.5,
-    align: "right",
-  });
+  text(`${totalQty.toFixed(3)} ${firstUnit}`.trim(), colX[3] + 2, y + 4.5, colWidths[3] - 6, { bold: true, size: 7.8, align: "right" });
+  text("Rs. " + money(invoice.grand_total), colX[6] + 2, y + 4, colWidths[6] - 6, { bold: true, size: 8.5, align: "right" });
   y += totalH;
 
   // ==================== 4. AMOUNT IN WORDS ====================
@@ -433,54 +407,38 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const groups = new Map<string, R>();
   rows.forEach((item) => {
     const key = s(item.hsn_code) + "|" + n(item.gst_rate);
-    const g = groups.get(key) || {
-      hsn: s(item.hsn_code),
-      rate: n(item.gst_rate),
-      taxable: 0,
-      cgst: 0,
-      sgst: 0,
-      igst: 0,
-    };
+    const g = groups.get(key) || { hsn: s(item.hsn_code), rate: n(item.gst_rate), taxable: 0, cgst: 0, sgst: 0, igst: 0 };
     g.taxable += n(item.taxable_value);
     g.cgst += n(item.cgst_amount);
     g.sgst += n(item.sgst_amount);
     g.igst += n(item.igst_amount);
     groups.set(key, g);
   });
-
-  // 7 columns summing to 538.58pt
   const hsnWidths = [188.58, 72, 42, 66, 42, 66, 62];
   const hsnX: number[] = [];
-  hsnWidths.reduce((acc, w) => {
-    hsnX.push(acc);
-    return acc + w;
-  }, L);
-
+  hsnWidths.reduce((acc, w) => { hsnX.push(acc); return acc + w; }, L);
   const hsnHeadH = 24;
   box(L, y, W, hsnHeadH);
-  // Vertical dividers for HSN header
-  vline(hsnX[1], y, y + hsnHeadH);
-  vline(hsnX[2], y, y + hsnHeadH);
-  vline(hsnX[3], y + 12, y + hsnHeadH);
-  vline(hsnX[4], y, y + hsnHeadH);
-  vline(hsnX[5], y + 12, y + hsnHeadH);
-  vline(hsnX[6], y, y + hsnHeadH);
-  // Horizontal split under CGST and SGST/UTGST
+  hsnX.slice(1).forEach((x) => vline(x, y, y + hsnHeadH));
   hline(y + 12, hsnX[2], hsnX[6]);
-
   text("HSN/SAC", hsnX[0], y + 7, hsnWidths[0], { size: 7.5, align: "center" });
-  text("Taxable\nValue", hsnX[1], y + 3, hsnWidths[1], { size: 7.2, align: "center" });
-  text("CGST", hsnX[2], y + 2, hsnWidths[2] + hsnWidths[3], { size: 7.2, align: "center" });
-  text("Rate", hsnX[2], y + 14, hsnWidths[2], { size: 7, align: "center" });
-  text("Amount", hsnX[3], y + 14, hsnWidths[3], { size: 7, align: "center" });
-  text("SGST/UTGST", hsnX[4], y + 2, hsnWidths[4] + hsnWidths[5], { size: 7.2, align: "center" });
-  text("Rate", hsnX[4], y + 14, hsnWidths[4], { size: 7, align: "center" });
-  text("Amount", hsnX[5], y + 14, hsnWidths[5], { size: 7, align: "center" });
-  text("Total\nTax Amount", hsnX[6], y + 3, hsnWidths[6], { size: 7.2, align: "center" });
+  text("Taxable\\nValue", hsnX[1], y + 3, hsnWidths[1], { size: 7.2, align: "center" });
+  if (hasIgst) {
+    text("IGST", hsnX[2], y + 2, hsnWidths[2] + hsnWidths[3], { size: 7.2, align: "center" });
+    text("Rate", hsnX[2], y + 14, hsnWidths[2], { size: 7, align: "center" });
+    text("Amount", hsnX[3], y + 14, hsnWidths[3], { size: 7, align: "center" });
+    text("—", hsnX[4], y + 8, hsnWidths[4] + hsnWidths[5], { size: 7.2, align: "center" });
+  } else {
+    text("CGST", hsnX[2], y + 2, hsnWidths[2] + hsnWidths[3], { size: 7.2, align: "center" });
+    text("Rate", hsnX[2], y + 14, hsnWidths[2], { size: 7, align: "center" });
+    text("Amount", hsnX[3], y + 14, hsnWidths[3], { size: 7, align: "center" });
+    text("SGST/UTGST", hsnX[4], y + 2, hsnWidths[4] + hsnWidths[5], { size: 7.2, align: "center" });
+    text("Rate", hsnX[4], y + 14, hsnWidths[4], { size: 7, align: "center" });
+    text("Amount", hsnX[5], y + 14, hsnWidths[5], { size: 7, align: "center" });
+  }
+  text("Total\\nTax Amount", hsnX[6], y + 3, hsnWidths[6], { size: 7.2, align: "center" });
   y += hsnHeadH;
-
   const taxTotal = n(invoice.cgst_total) + n(invoice.sgst_total) + n(invoice.igst_total);
-
   for (const g of groups.values()) {
     const rh = 15;
     box(L, y, W, rh);
@@ -488,26 +446,30 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const half = (g.rate / 2).toFixed(2) + "%";
     text(g.hsn, hsnX[0] + 4, y + 3.5, hsnWidths[0] - 8, { size: 7.5 });
     text(money(g.taxable), hsnX[1] + 2, y + 3.5, hsnWidths[1] - 6, { size: 7.5, align: "right" });
-    text(g.igst ? "0.00%" : half, hsnX[2] + 2, y + 3.5, hsnWidths[2] - 4, { size: 7.5, align: "right" });
-    text(money(g.igst ? 0 : g.cgst), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { size: 7.5, align: "right" });
-    text(g.igst ? "0.00%" : half, hsnX[4] + 2, y + 3.5, hsnWidths[4] - 4, { size: 7.5, align: "right" });
-    text(money(g.igst ? 0 : g.sgst), hsnX[5] + 2, y + 3.5, hsnWidths[5] - 6, { size: 7.5, align: "right" });
+    if (hasIgst) {
+      text(g.rate.toFixed(2) + "%", hsnX[2] + 2, y + 3.5, hsnWidths[2] - 4, { size: 7.5, align: "right" });
+      text(money(g.igst), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { size: 7.5, align: "right" });
+      text("—", hsnX[4] + 2, y + 3.5, hsnWidths[4] + hsnWidths[5] - 4, { size: 7.5, align: "center" });
+    } else {
+      text(half, hsnX[2] + 2, y + 3.5, hsnWidths[2] - 4, { size: 7.5, align: "right" });
+      text(money(g.cgst), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { size: 7.5, align: "right" });
+      text(half, hsnX[4] + 2, y + 3.5, hsnWidths[4] - 4, { size: 7.5, align: "right" });
+      text(money(g.sgst), hsnX[5] + 2, y + 3.5, hsnWidths[5] - 6, { size: 7.5, align: "right" });
+    }
     text(money(g.cgst + g.sgst + g.igst), hsnX[6] + 2, y + 3.5, hsnWidths[6] - 6, { size: 7.5, align: "right" });
     y += rh;
   }
-
-  // HSN Total Row
   const hsnTotH = 15;
   box(L, y, W, hsnTotH);
   hsnX.slice(1).forEach((x) => vline(x, y, y + hsnTotH));
   text("Total", hsnX[0] + 4, y + 3.5, hsnWidths[0] - 8, { bold: true, size: 7.5, align: "right" });
-  text(money(rows.reduce((sum, item) => sum + n(item.taxable_value), 0)), hsnX[1] + 2, y + 3.5, hsnWidths[1] - 6, {
-    bold: true,
-    size: 7.5,
-    align: "right",
-  });
-  text(money(invoice.cgst_total), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { bold: true, size: 7.5, align: "right" });
-  text(money(invoice.sgst_total), hsnX[5] + 2, y + 3.5, hsnWidths[5] - 6, { bold: true, size: 7.5, align: "right" });
+  text(money(rows.reduce((sum, item) => sum + n(item.taxable_value), 0)), hsnX[1] + 2, y + 3.5, hsnWidths[1] - 6, { bold: true, size: 7.5, align: "right" });
+  if (hasIgst) {
+    text(money(invoice.igst_total), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { bold: true, size: 7.5, align: "right" });
+  } else {
+    text(money(invoice.cgst_total), hsnX[3] + 2, y + 3.5, hsnWidths[3] - 6, { bold: true, size: 7.5, align: "right" });
+    text(money(invoice.sgst_total), hsnX[5] + 2, y + 3.5, hsnWidths[5] - 6, { bold: true, size: 7.5, align: "right" });
+  }
   text(money(taxTotal), hsnX[6] + 2, y + 3.5, hsnWidths[6] - 6, { bold: true, size: 7.5, align: "right" });
   y += hsnTotH;
 

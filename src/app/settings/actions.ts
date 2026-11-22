@@ -26,6 +26,7 @@ export async function saveBusinessProfile(formData: FormData) {
   if (businessError) redirect("/settings?error=Unable%20to%20update%20business");
   const { error } = await supabase.from("business_gst_settings").update({
     legal_name: legalName, gstin: gstin || null,
+    msme_number: String(formData.get("msme_number") || "").trim() || null,
     address_line_1: String(formData.get("address_line_1") || "").trim() || null,
     address_line_2: String(formData.get("address_line_2") || "").trim() || null,
     city: String(formData.get("city") || "").trim() || null,

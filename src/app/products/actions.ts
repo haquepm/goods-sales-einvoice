@@ -38,6 +38,33 @@ export async function createProduct(formData: FormData) {
   redirect("/products?success=Product%20added");
 }
 
+export async function updateProduct(formData: FormData) {
+  const id = String(formData.get("id") || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/products?error=Invalid%20product");
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims?.claims?.sub) redirect("/login");
+  const parsed = productSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect(`/products/${id}/edit?error=Please%20check%20the%20product%20details`);
+  const { data: businesses, error: businessError } = await supabase.from("businesses").select("id").order("created_at", { ascending: true }).limit(1);
+  if (businessError || !businesses?.[0]) redirect("/onboarding");
+  const value = parsed.data;
+  const { error } = await supabase.from("products").update({
+    sku: value.sku || null,
+    description: value.description,
+    hsn_code: value.hsn_code,
+    unit_code: value.unit_code,
+    gst_rate: value.gst_rate,
+    default_rate: value.default_rate,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).eq("business_id", businesses[0].id);
+  if (error) redirect(`/products/${id}/edit?error=Unable%20to%20update%20product.%20Check%20duplicate%20SKU.`);
+  revalidatePath("/products");
+  revalidatePath("/invoices/new");
+  revalidatePath("/imports");
+  redirect("/products?success=Product%20updated");
+}
+
 export async function toggleProductStatus(formData: FormData) {
   const id = String(formData.get("id") || "");
   const active = String(formData.get("active") || "") === "true";

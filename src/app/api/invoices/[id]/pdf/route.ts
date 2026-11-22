@@ -36,32 +36,40 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const t=(v:unknown,x:number,yy:number,w:number,o:R={})=>doc.font(o.bold?"Helvetica-Bold":"Helvetica").fontSize(o.size||6).fillColor("#111").text(s(v),x,yy,{width:w,align:o.align||"left",lineGap:0});
  const rect=(x:number,yy:number,w:number,h:number)=>doc.rect(x,yy,w,h).lineWidth(.4).strokeColor("#555").stroke();
  const cell=(v:unknown,x:number,yy:number,w:number,o:R={})=>t(v,x+3,yy+3,w-6,o);
- let qr:Buffer|undefined;try{qr=Buffer.from((await QRCode.toDataURL(s(inv.generated_irn||inv.invoice_number),{margin:1,width:180})).split(",")[1],"base64");}catch{}
- t(inv.status==="draft"?"Draft Tax Invoice":"Tax Invoice",L,y,W,{bold:true,size:10,align:"center"});
- t("e-Invoice",R-104,y,100,{size:6.2,bold:true,align:"center"});if(qr)doc.image(qr,R-102,y+12,{fit:[96,96]});y+=17;
- t("IRN / Invoice Reference:",L+4,y,105,{bold:true,size:5.8});t(inv.generated_irn,L+110,y,W-210,{size:5.5});y+=10;
- if(inv.status==="irp_registered"&&inv.irn){t("IRP IRN: "+inv.irn,L+4,y,280);t("Ack No.: "+s(inv.acknowledgement_number)+"  Ack Date: "+d(inv.acknowledgement_date),L+285,y,270);y+=11;}
- const left=236,right=W-left,top=y,meta=[
- ["Invoice No.",inv.invoice_number,"Dated",d(inv.invoice_date)],
- ["Delivery Note",del.delivery_note,"Mode/Terms of Payment",del.payment_terms],
- ["Reference No. & Date",del.reference_number,"Other References",del.other_references],
- ["Buyer's Order No.",del.buyer_order_number,"Dated",d(del.buyer_order_date)],
- ["Dispatch Doc No.",tr.dispatch_doc_number,"Delivery Note Date",d(tr.delivery_note_date)],
- ["Dispatched through",tr.dispatched_through,"Destination",tr.destination],
- ["Bill of Lading/LR-RR No.",tr.lr_number,"Motor Vehicle No.",tr.vehicle_number],
- ["Terms of Delivery",tr.terms,"Place of Supply",inv.place_of_supply_state_code]
+ let qr:Buffer|undefined;try{qr=Buffer.from((await QRCode.toDataURL(s(inv.generated_irn||inv.invoice_number),{margin:0,width:220,errorCorrectionLevel:"M"})).split(",")[1],"base64");}catch{}
+ // Reference layout: centered title, IRN at upper left, dedicated e-Invoice QR block at upper right.
+ t(inv.status==="draft"?"Draft Tax Invoice":"Tax Invoice",L,27,W,{bold:true,size:10,align:"center"});
+ t("IRN",L+4,75,34,{bold:true,size:6});
+ t(inv.generated_irn,L+43,75,340,{size:5.1});
+ t("e-Invoice",R-103,31,99,{bold:true,size:6,align:"center"});
+ if(qr)doc.image(qr,R-98,43,{fit:[92,92]});
+ y=136;
+ const left=236,right=W-left,top=y;
+ const meta=[
+ ["Invoice No.",inv.invoice_number],["Dated",d(inv.invoice_date)],
+ ["Delivery Note",del.delivery_note],["Mode/Terms of Payment",del.payment_terms],
+ ["Reference No. & Date",del.reference_number],["Other References",del.other_references],
+ ["Buyer's Order No.",del.buyer_order_number],["Dated",d(del.buyer_order_date)],
+ ["Dispatch Doc No.",tr.dispatch_doc_number],["Delivery Note Date",d(tr.delivery_note_date)],
+ ["Dispatched through",tr.dispatched_through],["Destination",tr.destination],
+ ["Bill of Lading/LR-RR No.",tr.lr_number],["Motor Vehicle No.",tr.vehicle_number],
+ ["Terms of Delivery",tr.terms],["Place of Supply",inv.place_of_supply_state_code]
  ];
  rect(L,top,left,112);rect(L+left,top,right,112);
- t(s(seller.legal_name),L+4,top+4,left-8,{bold:true,size:7});
- [a(seller.address),seller.gstin?"GSTIN/UIN: "+seller.gstin:"",seller.state_name?"State Name: "+seller.state_name+"  Code: "+s(seller.state_code):"",seller.email?"E-Mail: "+seller.email:"",seller.phone?"Phone: "+seller.phone:""].filter(Boolean).forEach((v,i)=>t(v,L+4,top+15+i*9,left-8,{size:5.7}));
- meta.forEach((r,i)=>{const yy=top+i*14;if(i)line(yy,L+left,R);t(r[0],L+left+4,yy+3,91,{size:5.2});t(r[1],L+left+97,yy+3,77,{size:5.4,bold:true});t(r[2],L+left+178,yy+3,76,{size:5.2});t(r[3],L+left+256,yy+3,right-260,{size:5.4});});
+ t(s(seller.legal_name),L+4,top+5,left-8,{bold:true,size:7});
+ [seller.gstin?"GSTIN/UIN: "+seller.gstin:"",a(seller.address),seller.state_name?"State Name: "+seller.state_name+"  Code: "+s(seller.state_code):"",seller.email?"E-Mail: "+seller.email:"",seller.phone?"Phone: "+seller.phone:""].filter(Boolean).forEach((v,i)=>t(v,L+4,top+16+i*9,left-8,{size:5.5}));
+ meta.forEach((r,i)=>{const yy=top+i*7; if(i%2===0&&i>0)line(yy,L+left,R);t(r[0],L+left+4,yy+1,103,{size:5.0});t(r[1],L+left+109,yy+1,right-113,{size:5.1,bold:i%2===0});});
  y=top+112;
- const partyH=55;rect(L,y,left,partyH);rect(L+left,y,right,partyH);
- t("Consignee (Ship to)",L+4,y+3,left-8,{bold:true,size:5.5});
- [s(del.name||buyer.legal_name),a(del.address||buyer.shipping_address),del.gstin?"GSTIN/UIN: "+del.gstin:"",buyer.state_code?"State Name: "+s(buyer.state_name)+"  Code: "+s(buyer.state_code):""].filter(Boolean).forEach((v,i)=>t(v,L+4,y+12+i*8,left-8,{size:5.5,bold:i===0}));
- t("Buyer (Bill to)",L+left+4,y+3,right-8,{bold:true,size:5.5});
- [s(buyer.legal_name),a(buyer.billing_address),buyer.gstin?"GSTIN/UIN: "+buyer.gstin:"",buyer.state_code?"State Name: "+s(buyer.state_name)+"  Code: "+s(buyer.state_code):""].filter(Boolean).forEach((v,i)=>t(v,L+left+4,y+12+i*8,right-8,{size:5.5,bold:i===0}));
- y+=partyH;
+ // Left side: consignee and buyer in separate stacked boxes. Right side: dispatch particulars.
+ const partyW=left, rightW=right, partyH=44, dispatchH=88;
+ rect(L,y,partyW,partyH);rect(L,y+partyH,partyW,partyH);rect(L+partyW,y,rightW,dispatchH);
+ t("Consignee (Ship to)",L+4,y+3,partyW-8,{bold:true,size:5.5});
+ [s(del.name||buyer.legal_name),a(del.address||buyer.shipping_address),del.gstin?"GSTIN/UIN: "+del.gstin:"",buyer.state_code?"State Name: "+s(buyer.state_name)+"  Code: "+s(buyer.state_code):""].filter(Boolean).forEach((v,i)=>t(v,L+4,y+12+i*7,partyW-8,{size:5.1,bold:i===0}));
+ t("Buyer (Bill to)",L+4,y+partyH+3,partyW-8,{bold:true,size:5.5});
+ [s(buyer.legal_name),a(buyer.billing_address),buyer.gstin?"GSTIN/UIN: "+buyer.gstin:"",buyer.state_code?"State Name: "+s(buyer.state_name)+"  Code: "+s(buyer.state_code):""].filter(Boolean).forEach((v,i)=>t(v,L+4,y+partyH+12+i*7,partyW-8,{size:5.1,bold:i===0}));
+ const dispatch=[["Dispatch Doc No.",tr.dispatch_doc_number],["Dispatched through",tr.dispatched_through],["Destination",tr.destination],["Bill of Lading/LR-RR No.",tr.lr_number],["Motor Vehicle No.",tr.vehicle_number],["Terms of Delivery",tr.terms]];
+ dispatch.forEach((r,i)=>{const yy=y+i*14;if(i)line(yy,L+partyW,R);t(r[0],L+partyW+4,yy+3,105,{size:5.1});t(r[1],L+partyW+112,yy+3,rightW-116,{size:5.2,bold:true});});
+ y+=dispatchH;
  const widths=[22,210,48,55,58,34,82],heads=["Sl","Description of Goods","HSN/SAC","Quantity","Rate","per","Amount"];
  const drawHead=()=>{rect(L,y,W,18);let x=L;heads.forEach((v,i)=>{cell(v,x,y,widths[i],{bold:true,size:5.5,align:i>=3?"right":"left"});x+=widths[i];});y+=18;};drawHead();
  rows.forEach((it,i)=>{const desc=s(it.description);doc.font("Helvetica").fontSize(5.8);const h=Math.max(17,doc.heightOfString(desc,{width:widths[1]-8})+7);if(y+h+24>760){doc.addPage({size:"A4",margin:27});y=25;drawHead();}rect(L,y,W,h);let x=L;[String(i+1),desc,s(it.hsn_code),m(it.quantity),m(it.unit_rate),s(it.unit_code),m(it.taxable_value)].forEach((v,j)=>{cell(v,x,y,widths[j],{size:5.7,align:j>=3?"right":"left"});x+=widths[j];});y+=h;

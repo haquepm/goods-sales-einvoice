@@ -75,7 +75,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const box=(x:number,yy:number,w:number,h:number)=>doc.rect(x,yy,w,h).lineWidth(.45).strokeColor("#555555").stroke();
  const newPage=()=>{doc.addPage({size:"A4",margin:27});y=27;header(false);};
  const header=(first:boolean)=>{
-  txt(invoice.status==="irp_registered"?"TAX INVOICE":"DRAFT - NOT A TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
+  txt(["issued","irp_registered"].includes(invoice.status)?"TAX INVOICE":"DRAFT INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
   if(first&&qrBuffer)doc.image(qrBuffer,R-67,24,{fit:[62,62]});
   if(invoice.generated_irn){txt("IRN: "+invoice.generated_irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;}
   if(invoice.status==="irp_registered"&&invoice.irn){txt("IRP Registration IRN: "+invoice.irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=12;}

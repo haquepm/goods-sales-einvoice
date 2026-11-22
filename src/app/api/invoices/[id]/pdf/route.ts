@@ -106,7 +106,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const drawTableHead=()=>{let x=L;box(L,y,W,tableHead);for(let i=0;i<cols.length;i++){txt(labels[i],x+3,y+7,cols[i]-6,{bold:true,size:6,align:i>=3?"right":"left"});x+=cols[i];if(i<cols.length-1)doc.moveTo(x,y).lineTo(x,y+tableHead).lineWidth(.35).strokeColor("#777").stroke();}y+=tableHead;};
  drawTableHead();
  for(const item of rows){
-  const desc=safe(item.description);const h=Math.max(23,doc.heightOfString(desc,{width:cols[1]-8,fontSize:6.5})+8);
+  const desc=safe(item.description);doc.font("Helvetica").fontSize(6.5);const h=Math.max(23,doc.heightOfString(desc,{width:cols[1]-8})+8);
   if(y+h>760){newPage();drawTableHead();}
   let x=L;const vals=[String(item.line_number),desc,safe(item.hsn_code),Number(item.quantity).toLocaleString("en-IN")+" "+safe(item.unit_code),money(item.unit_rate),money(item.taxable_value),Number(item.gst_rate).toFixed(2),money(item.line_total)];
   box(L,y,W,h);for(let i=0;i<vals.length;i++){txt(vals[i],x+3,y+5,cols[i]-6,{size:6.3,align:i>=3?"right":"left"});x+=cols[i];if(i<cols.length-1)doc.moveTo(x,y).lineTo(x,y+h).lineWidth(.3).strokeColor("#aaa").stroke();}y+=h;
@@ -116,7 +116,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  txt(rows.reduce((s,x)=>s+Number(x.quantity),0).toLocaleString("en-IN"),L+cols[0]+cols[1]+cols[2]+3,y+8,cols[3]-6,{bold:true,size:7,align:"right"});
  txt("INR "+money(invoice.grand_total),R-112,y+8,106,{bold:true,size:7,align:"right"});y+=totalsH+8;
  const amountLine="Amount Chargeable (in words): "+inrWords(Number(invoice.grand_total));
- const wordH=doc.heightOfString(amountLine,{width:W-12,fontSize:6.8})+12;
+ doc.font("Helvetica").fontSize(6.8);const wordH=doc.heightOfString(amountLine,{width:W-12})+12;
  if(y+wordH+145>770){newPage();}
  box(L,y,W,wordH);txt(amountLine,L+6,y+6,W-12,{size:6.8,bold:true});y+=wordH+7;
  const summaries=groupSummary(rows);const sumH=18+summaries.length*17;

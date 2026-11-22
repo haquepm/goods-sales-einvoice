@@ -74,13 +74,15 @@ export async function generateBatchInvoices(formData:FormData){
  const batchId=String(formData.get("batch_id")||"");if(!z.string().uuid().safeParse(batchId).success)redirect("/imports");
  const {supabase,businessId}=await context();
  const {data:batch}=await supabase.from("bulk_import_batches").select("*").eq("id",batchId).eq("business_id",businessId).maybeSingle();
- if(!batch||batch.status==="completed")redirect("/imports/"+batchId);
+ if(!batch||!["validated","failed"].includes(batch.status))redirect("/imports/"+batchId+"?error=This%20batch%20is%20already%20being%20processed%20or%20completed");
+ const {data:claimed,error:claimError}=await supabase.from("bulk_import_batches").update({status:"generating"}).eq("id",batchId).eq("business_id",businessId).in("status",["validated","failed"]).select("id").maybeSingle();
+ if(claimError||!claimed)redirect("/imports/"+batchId+"?error=This%20batch%20is%20already%20being%20processed");
  const {data:customer}=await supabase.from("customers").select("gstin,state_code").eq("id",batch.customer_id).eq("business_id",businessId).maybeSingle();
  if(!customer)redirect("/imports/"+batchId+"?error=Selected%20customer%20could%20not%20be%20loaded");
  const supplyType=customer.gstin?"B2B":"B2C";
  const {data:rows,error}=await supabase.from("bulk_import_rows").select("*").eq("batch_id",batchId).eq("validation_status","eligible").order("source_row_number");
  if(error||!rows?.length)redirect("/imports/"+batchId+"?error=No%20eligible%20rows%20to%20generate");
- await supabase.from("bulk_import_batches").update({status:"generating"}).eq("id",batchId);
+
  let generated=0;let failed=0;
  for(const row of rows){
   const mats=row.materials as Record<string,{product_id:string;quantity:number}>;

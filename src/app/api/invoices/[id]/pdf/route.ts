@@ -84,7 +84,8 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
   const metaX=L+260;
   txt("Invoice No.",metaX,top+5,90,{bold:true,size:6.5});txt(invoice.invoice_number,metaX+95,top+5,145,{bold:true,size:7});
   txt("Dated",metaX,top+19,90,{bold:true,size:6.5});txt(new Date(invoice.invoice_date+"T00:00:00").toLocaleDateString("en-IN"),metaX+95,top+19,145,{size:7});
-  txt("Financial Year",metaX,top+33,90,{bold:true,size:6.5});txt(invoice.financial_year,metaX+95,top+33,145,{size:7});\n  txt("E-Way Bill No.",metaX,top+47,90,{bold:true,size:6.5});txt(transport.eway_bill_number||"—",metaX+95,top+47,145,{size:7});
+  txt("Financial Year",metaX,top+33,90,{bold:true,size:6.5});txt(invoice.financial_year,metaX+95,top+33,145,{size:7});
+  txt("E-Way Bill No.",metaX,top+47,90,{bold:true,size:6.5});txt(transport.eway_bill_number||"—",metaX+95,top+47,145,{size:7});
   if(first){txt("E-Mail: "+safe(seller.email)+"   Phone: "+safe(seller.phone),L+6,top+63,245,{size:6.3});}
   y=top+(first?72:45);
  };

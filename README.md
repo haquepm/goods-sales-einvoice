@@ -1,188 +1,97 @@
-# Goods Sales e-Invoice Generator
+# Goods Sales Invoice Generator
 
-A multi-business application for creating GST goods sales invoices, registering eligible invoices through an authorised Indian e-Invoice IRP integration, and producing compact Tally-style PDFs.
+A multi-tenant goods sales invoicing application built with Next.js, Supabase and PostgreSQL. It supports business onboarding, customer and product masters, GST invoice calculations, bulk Excel invoice generation, a Tally-style PDF and an invoice issue workflow.
 
-## Product decisions
+## Product scope
 
-- Multi-business SaaS: every business has an isolated workspace and business-specific configuration.
-- Goods invoices only in the first release.
-- Every invoice generated for final issue must complete the configured IRP registration flow; no ordinary non-IRP final invoice mode.
-- Manual capture/import of an already-issued IRP response may be supported for reconciliation, but must never be presented as proof of registration unless the IRP response and signed data have been verified.
-- Invoice PDF should closely reproduce the supplied compact Tally-style reference: A4 portrait, small readable type, dense bordered tables, aligned header and tax summary.
-- Pagination is content-driven: one page when it fits; otherwise continue to further pages with invoice identification repeated as appropriate.
-- Excel bulk workflow: one customer is selected before upload and applies to all rows in that batch.
-- In the supplied Excel format, `NAME OF SUPPLIER` means material supplier/source, not buyer.
-- Each eligible Excel row creates one invoice. Rows with all material quantities zero/blank are skipped and do not consume invoice numbers.
-- Only positive-quantity materials become invoice lines.
-- Bulk processing must preview accepted and skipped rows before registration; each invoice registers independently, and failures remain visible/retryable.
+- Goods sales invoices only.
+- No IRP API integration or automatic government registration.
+- Each invoice receives an automatically generated 64-character reference (generated_irn) and a sequential business invoice number.
+- The generated reference is an application-generated invoice identifier; it is not fetched from a government IRP.
+- Businesses maintain their own seller GST profile, address and bank details.
+- Each Excel batch selects one buyer/customer. The spreadsheet's NAME OF SUPPLIER is treated as the material source, not the buyer.
+- Each eligible row generates one draft invoice. Rows with all material quantities blank/zero are skipped and do not consume invoice numbers.
+- Draft invoices can be reviewed and issued from the invoice detail screen.
+- Issued invoices are downloadable as A4 PDFs. Draft PDFs are clearly marked as drafts.
 
-## Initial stack
+## Technology
 
-- Next.js App Router + TypeScript
-- Supabase PostgreSQL, Auth and Storage
-- Server-side authorization and database Row Level Security
-- ExcelJS for workbook parsing
-- A server-side PDF renderer with a print stylesheet/template
-- Vercel hosting
+- Next.js 15 App Router, React 19 and TypeScript
+- Supabase Auth, PostgreSQL, Row Level Security and server-side RPC
+- ExcelJS for .xlsx parsing
+- PDFKit and QRCode for PDF output
+- GitHub Actions: TypeScript check, ESLint and production build
 
-Pin dependencies and commit the lockfile during application bootstrap. Never put a Supabase service-role/secret key or IRP credentials in browser code or `NEXT_PUBLIC_*` variables.
+## Implemented modules
 
-## Core modules
+1. Email/password authentication and business onboarding
+2. Tenant-scoped business membership and roles
+3. Business profile, GST and bank settings
+4. Customer master
+5. Goods/product master with HSN, unit, GST rate and default rate
+6. Invoice creation with atomic numbering and server-side tax calculation
+7. Invoice register, detail review and issue action
+8. Automatic unique 64-character invoice reference
+9. A4 Tally-style PDF with seller/buyer snapshots, tax summary, bank details and pagination
+10. Excel bulk import with customer selection, product mapping, row validation, preview and per-row invoice generation
+11. Business audit log entries for invoice creation and issue
 
-1. Business onboarding, memberships and roles
-2. Business GST, address, bank and invoice settings
-3. Customer and consignee master
-4. Goods/product master, HSN, units, GST rates and effective-dated price lists
-5. Invoice entry, tax calculation, numbering and validation
-6. IRP adapter, registration, signed response verification, retry and cancellation/reconciliation
-7. Exact-layout PDF rendering and secure document storage
-8. Excel import, column mapping, validation, preview and batch processing
-9. Invoice register, reports, audit trail and exports
+## Not yet implemented
 
-## Initial data model
+- Multi-business workspace switcher (current screens resolve the first business membership for a user)
+- Price lists and effective-dated rates
+- Full consignee/customer address management
+- Sales reports, GST returns, e-way bill generation and accounting exports
+- Invoice edit/revision, credit notes and cancellation workflow
+- Cloud document archive / ZIP export
+- Automated end-to-end browser tests and production UAT
+- Deployment to a production domain
 
-All tenant-owned rows must carry `business_id` and have indexes/constraints that support tenant isolation.
+## Database
 
-- `businesses`
-- `business_users`
-- `business_gst_settings`
-- `business_bank_accounts`
-- `customers`
-- `products`
-- `product_rates`
-- `units` (or a controlled unit catalogue)
-- `invoices`
-- `invoice_items`
-- `invoice_tax_summary`
-- `invoice_sequences`
-- `einvoice_submissions`
-- `invoice_documents`
-- `bulk_uploads`
-- `bulk_upload_rows`
-- `bulk_upload_materials`
-- `audit_logs`
+The app's tenant tables are in the existing Supabase project iqltunrvlosxdxucibef (Mumbai region). This project also contains an unrelated Crescent subcontractor billing application. The goods invoicing app uses its own tables and policies; existing subcontractor billing tables were not modified.
 
-Implementation detail: store money and quantities as PostgreSQL `numeric` with explicit precision/scale; do not use floating-point arithmetic for invoice totals or tax calculations. Persist immutable snapshots of seller, buyer, consignee, product description, HSN, unit, rate and tax data on issued invoices so later master-data edits do not rewrite history.
+Migrations currently committed:
 
-## Invoice lifecycle
+1. 202611220001_initial_tenant_foundation.sql
+2. 202611220002_business_owner_bootstrap.sql
+3. 202611220003_goods_sales_operations.sql
+4. 202611220004_tenant_integrity_guards.sql
+5. 202611220005_restrict_tenant_helper_rpc.sql
+6. 202611220006_private_tenant_helpers_and_grants.sql
+7. 202611220007_business_onboarding_rpc.sql
+8. 202611220008_atomic_goods_invoice_draft.sql
+9. 202611220009_generated_invoice_reference.sql
+10. 202611220010_invoice_issue_status.sql
 
-Suggested states:
+All goods invoicing tables have RLS enabled. Cross-business invoice/customer/product relationships are guarded by constraints and triggers. Invoice numbering is allocated atomically in PostgreSQL.
 
-`draft -> validated -> pending_irp -> registered -> pdf_generated`
+## Local development
 
-Failures are explicit states (for example `validation_failed` and `irp_failed`) with structured error details and controlled retry. A failed attempt must not silently allocate another invoice number or create a duplicate IRP registration. Use an idempotency strategy keyed to the internal invoice and provider transaction; persist the IRP request/response references and registration result.
+1. Install Node.js 22 or newer.
+2. Clone this repository.
+3. Copy .env.example to .env.local.
+4. Add the Supabase project URL and publishable key.
+5. Configure Supabase Auth Site URL and redirect URL to include http://localhost:3000/auth/callback.
+6. Run npm install and npm run dev.
+7. Open http://localhost:3000.
 
-Do not mark an invoice as an e-Invoice until registration has succeeded and the IRP-issued IRN, acknowledgement details and signed QR payload have been validated. Actual legal applicability and required payload validation must be checked for each business/transaction under current GST rules. The application must not claim that every possible transaction is legally eligible for IRP registration.
+Required environment variables:
 
-## Bulk Excel mapping (initial template)
+- NEXT_PUBLIC_SUPABASE_URL=https://iqltunrvlosxdxucibef.supabase.co
+- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+- NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-| Excel column | Meaning |
-|---|---|
-| `SL.NO` | Source row reference |
-| `DATE` | Delivery date |
-| `NAME OF SUPPLIER` | Material supplier/source |
-| `VEHICLE NUMBER` | Delivery vehicle number |
-| `UNIT` | Quantity unit (example: TON) |
-| `12 MM` | 12 MM Aggregate quantity |
-| `20 MM` | 20 MM Aggregate quantity |
-| `M-SAND` | M-Sand quantity |
+Never use a Supabase service-role/secret key in a NEXT_PUBLIC_* variable or commit credentials to Git.
 
-Customer/buyer is selected once before upload and applied to every eligible row. The source/supplier column must never be copied into the buyer field. A row is eligible only when at least one configured material quantity is positive. Validate date, unit, source, vehicle and quantities. Show a preview and skipped-row report before processing.
+## Verification and production checklist
 
-## Security and reliability baseline
+- Run npm run typecheck, npm run lint and npm run build.
+- Configure Supabase Auth redirect URLs for the deployed domain.
+- Add the environment variables to the hosting provider.
+- Complete business profile, GST details, customers, products and bank account setup.
+- Test intra-state and inter-state tax calculations with a GST professional.
+- Run a complete single invoice and Excel batch UAT using test data.
+- Confirm the deployed app uses HTTPS, private access and appropriate backup/restore settings.
 
-- Enable RLS on every table in exposed schemas.
-- Authorize access through trusted business membership records, not user-editable JWT metadata.
-- Ensure every query and mutation is scoped to the authenticated user's business membership.
-- Keep service-role and IRP credentials server-side; prefer a managed secret store.
-- Use private Storage buckets and short-lived signed URLs for invoice documents.
-- Use atomic database operations for invoice sequence allocation.
-- Use idempotency keys and persist each IRP attempt before retrying.
-- Maintain append-only audit events for issue, registration, cancellation and administrative changes.
-- Define backups, restore tests, retention and export procedures before production use.
-
-## Development sequence
-
-### Milestone 1 — Foundation
-- Bootstrap Next.js + TypeScript project and lint/type-check scripts.
-- Configure Supabase local development and environment validation.
-- Create the first SQL migration for tenant membership and business setup.
-- Add RLS policies and automated tenant-isolation tests.
-
-### Milestone 2 — Masters
-- Business profile and GST settings
-- Customers/consignees
-- Products, HSN, units, tax rates and price lists
-
-### Milestone 3 — Invoice engine
-- Invoice draft and line items
-- CGST/SGST/IGST determination based on place of supply and applicable rules
-- Decimal-safe rounding, totals and amount-in-words
-- Atomic invoice numbering and validation
-
-### Milestone 4 — IRP integration
-- Select an authorised provider and confirm onboarding/credentials
-- Implement provider adapter and sandbox registration
-- Validate IRP response and signed QR data
-- Handle retries, duplicate prevention, cancellation and reconciliation
-
-### Milestone 5 — PDF and bulk upload
-- Reproduce the supplied Tally-style invoice reference
-- Dynamic page layout and page-break tests
-- Excel mapping, preview, row-level validation and batch processing
-- Individual PDFs and ZIP export
-
-### Milestone 6 — Production readiness
-- Reports, audit trail, monitoring and alerts
-- Backup/restore exercise
-- Security review, GST/IRP compliance review and user acceptance testing
-
-## Supabase environment
-
-The development database is the existing Crescent Subcontractor Billing Supabase project (`iqltunrvlosxdxucibef`, ap-south-1). This application has its own tenant tables and RLS policies; it does not reuse subcontractor-billing tables. The schema migrations are in `supabase/migrations/` and have been applied to the linked project.
-
-Create a local `.env.local` from `.env.example`, then add the project's publishable/legacy anon key locally. The service-role key is optional for narrowly scoped server-side jobs and must never be exposed to the browser. Never commit real secrets.
-
-### Database migrations applied
-
-1. `202611220001_initial_tenant_foundation.sql`
-2. `202611220002_business_owner_bootstrap.sql`
-3. `202611220003_goods_sales_operations.sql`
-4. `202611220004_tenant_integrity_guards.sql`
-5. `202611220005_restrict_tenant_helper_rpc.sql`
-
-All new application tables have RLS enabled. Business-scoped relationships are guarded against cross-tenant customer/product/invoice references. New public tables receive explicit authenticated Data API grants; anonymous access is not granted.
-
-## Important scope note
-
-The reference PDFs are visual/layout references only. Seller, buyer, GST, bank and invoice details must be entered independently by each business. This repository is not tied to Crescent Contractors or any sample seller.
-
-## Legal and tax review
-
-The software is a workflow and document-generation tool, not a substitute for professional GST advice. Before production, verify current IRP schema/provider requirements, GST applicability, HSN/tax treatment, invoice numbering, cancellation rules, retention and other statutory requirements with a qualified GST professional and the authorised provider.
-
-
-## Current implementation status
-
-- [x] Multi-business database foundation and tenant RLS
-- [x] Auth email/password sign-in, sign-up and PKCE callback
-- [x] Server-side session refresh for Next.js 15 middleware
-- [x] Atomic business + GST profile onboarding; creator becomes owner through the database trigger
-- [x] Authenticated workspace landing page
-- [ ] Customer and product master screens
-- [ ] Invoice creation, tax calculation and sequence allocation
-- [ ] IRP provider integration and signed response verification
-- [ ] Tally-style PDF generation
-- [ ] Excel preview and bulk invoice generation
-
-### Local setup
-
-Copy `.env.example` to `.env.local` and set:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://iqltunrvlosxdxucibef.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-Use the publishable key from Supabase Project Settings → API Keys. Never use the service-role/secret key in this variable or in browser code. Configure the Auth Site URL and redirect URL to include your local app URL and `/auth/callback`, then configure the production domain before deployment.
+The application is a document and workflow tool. Businesses remain responsible for confirming GST applicability, tax rates, HSN classification, invoice content and statutory requirements with their tax adviser.

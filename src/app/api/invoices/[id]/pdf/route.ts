@@ -753,14 +753,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   });
   text("Authorised Signatory", sigX + 4, sigY + sigH - 13, sigW - 10, { size: 8.1, align: "right" });
 
-  // Optional Seal & Signature Stamp Overlay (save transparent PNG at public/images/seal-signature.png)
+  // Business-specific seal & signature PNG from private Supabase Storage.
   try {
-    const sealPath = path.join(process.cwd(), "public", "images", "seal-signature.png");
-    if (fs.existsSync(sealPath)) {
-      doc.image(sealPath, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
+    const { data: sealFile } = await supabase.storage
+      .from("invoice-assets")
+      .download(`${businessId}/seal-signature.png`);
+    if (sealFile) {
+      const sealBuffer = Buffer.from(await sealFile.arrayBuffer());
+      doc.image(sealBuffer, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
+    } else {
+      // Backward-compatible fallback for deployments still using the old static asset.
+      const sealPath = path.join(process.cwd(), "public", "images", "seal-signature.png");
+      if (fs.existsSync(sealPath)) doc.image(sealPath, sigX + sigW - 115, sigY - 26, { fit: [108, 108] });
     }
   } catch {
-    /* ignore if seal image is missing */
+    /* keep invoice generation working if no seal has been uploaded */
   }
 
   // Bottom Centered Note outside border

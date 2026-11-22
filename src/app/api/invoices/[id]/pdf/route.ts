@@ -60,11 +60,9 @@ function addressLines(v: unknown, includePinOnCity = false): string[] {
   const pinPart = s(x.postal_code || x.pincode || x.pin);
 
   if (includePinOnCity) {
-    // Supplier style: Line 1 / District / STATE-PINCODE
     const line3 = statePart && pinPart ? `${statePart}-${pinPart}` : statePart || pinPart;
     return [line1, line2, cityDist, line3].filter(Boolean);
   }
-  // Consignee / Buyer style: Line 1 / Line 2 / Locality, City
   const line3 = [cityDist, pinPart].filter(Boolean).join(" - ");
   return [line1, line2, line3].filter(Boolean);
 }
@@ -174,8 +172,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const W = 538.58;
   const RIGHT = L + W;
   const ink = "#000000";
-  const borderInk = "#666666"; // Crisp TallyPrime hairline border tone
-  const rowTint = "#D9DCE6";   // Exact TallyPrime lavender-gray row highlight
+  const borderInk = "#666666";
+  const rowTint = "#D9DCE6";
 
   const hline = (y: number, x1 = L, x2 = RIGHT, lw = 0.4) =>
     doc.moveTo(x1, y).lineTo(x2, y).lineWidth(lw).strokeColor(borderInk).stroke();
@@ -186,23 +184,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const fillRect = (x: number, y: number, w: number, h: number, color = rowTint) =>
     doc.save().rect(x, y, w, h).fill(color).restore();
 
-  // Crisp vector Indian Rupee (₹) glyph matching Helvetica-Bold 8.5pt
-  const drawRupee = (x: number, y: number, size = 8.5) => {
+  // Crisp vector Indian Rupee (₹) glyph scaled to match Tally's 10pt Bold grand total
+  const drawRupee = (x: number, y: number, size = 10) => {
     const scale = size / 10;
-    doc.save().strokeColor(ink).lineWidth(0.95 * scale).lineCap("butt");
-    // Top bar
-    doc.moveTo(x, y + 1.4 * scale).lineTo(x + 5.6 * scale, y + 1.4 * scale).stroke();
-    // Middle bar
-    doc.moveTo(x, y + 3.4 * scale).lineTo(x + 5.6 * scale, y + 3.4 * scale).stroke();
-    // Upper bowl + diagonal tail
+    doc.save().strokeColor(ink).lineWidth(1.05 * scale).lineCap("butt");
+    doc.moveTo(x, y + 1.4 * scale).lineTo(x + 5.8 * scale, y + 1.4 * scale).stroke();
+    doc.moveTo(x, y + 3.5 * scale).lineTo(x + 5.8 * scale, y + 3.5 * scale).stroke();
     doc
       .moveTo(x + 1.2 * scale, y + 1.4 * scale)
       .bezierCurveTo(
-        x + 4.4 * scale, y + 1.4 * scale,
-        x + 4.4 * scale, y + 5.2 * scale,
-        x + 0.8 * scale, y + 5.2 * scale
+        x + 4.5 * scale, y + 1.4 * scale,
+        x + 4.5 * scale, y + 5.3 * scale,
+        x + 0.8 * scale, y + 5.3 * scale
       )
-      .lineTo(x + 4.8 * scale, y + 8.6 * scale)
+      .lineTo(x + 5.0 * scale, y + 8.8 * scale)
       .stroke();
     doc.restore();
   };
@@ -218,7 +213,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
             : "Helvetica";
     doc
       .font(fontName)
-      .fontSize(opts.size ?? 8)
+      .fontSize(opts.size ?? 8.2)
       .fillColor(ink)
       .text(s(value), x, y, {
         width: w,
@@ -276,46 +271,46 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     /* ignore QR failure */
   }
 
-  // Title & e-Invoice Label
-  text(invoice.status === "draft" ? "Tax Invoice (Draft)" : "Tax Invoice", L, 20, W, {
+  // Title & e-Invoice Label (12.5pt & 8.5pt matching Tally)
+  text(invoice.status === "draft" ? "Tax Invoice (Draft)" : "Tax Invoice", L, 19, W, {
     bold: true,
-    size: 11,
+    size: 12.5,
     align: "center",
   });
 
   const qrSize = 98;
   const qrX = RIGHT - qrSize - 4;
   if (irnCode || qr) {
-    text("e-Invoice", qrX, 22, qrSize, { bold: true, size: 7.5, align: "center" });
+    text("e-Invoice", qrX, 21, qrSize, { bold: true, size: 8.5, align: "center" });
   }
 
-  // Left IRN / Ack Details (aligned with lower half of the 98pt QR code)
-  const irnY = 74;
-  const irnColonX = L + 44;
+  // Left IRN / Ack Details (8pt–8.2pt Tally scale)
+  const irnY = 71;
+  const irnColonX = L + 47;
   if (irnCode) {
     const irnFormatted =
       irnCode.length > 46 ? irnCode.slice(0, 46) + "-\n" + irnCode.slice(46) : irnCode;
-    text("IRN", L + 2, irnY, 40, { size: 7.4 });
-    text(":", irnColonX, irnY, 6, { size: 7.4 });
-    text(irnFormatted, irnColonX + 5, irnY, 240, { bold: true, size: 7.4, lineGap: 0.8 });
+    text("IRN", L + 2, irnY, 44, { size: 8.2 });
+    text(":", irnColonX, irnY, 6, { size: 8.2 });
+    text(irnFormatted, irnColonX + 5, irnY, 260, { bold: true, size: 8, lineGap: 0.9 });
   }
   if (ackNo || irnCode) {
-    text("Ack No.", L + 2, irnY + 18.5, 40, { size: 7.4 });
-    text(":", irnColonX, irnY + 18.5, 6, { size: 7.4 });
-    text(ackNo || "-", irnColonX + 5, irnY + 18.5, 220, { bold: true, size: 7.4 });
+    text("Ack No.", L + 2, irnY + 20, 44, { size: 8.2 });
+    text(":", irnColonX, irnY + 20, 6, { size: 8.2 });
+    text(ackNo || "-", irnColonX + 5, irnY + 20, 240, { bold: true, size: 8.2 });
   }
   if (ackDate || irnCode) {
-    text("Ack Date", L + 2, irnY + 28, 40, { size: 7.4 });
-    text(":", irnColonX, irnY + 28, 6, { size: 7.4 });
-    text(ackDate, irnColonX + 5, irnY + 28, 220, { bold: true, size: 7.4 });
+    text("Ack Date", L + 2, irnY + 30.5, 44, { size: 8.2 });
+    text(":", irnColonX, irnY + 30.5, 6, { size: 8.2 });
+    text(ackDate, irnColonX + 5, irnY + 30.5, 240, { bold: true, size: 8.2 });
   }
 
   if (qr) {
-    doc.image(qr, qrX, 32, { fit: [qrSize, qrSize] });
+    doc.image(qr, qrX, 33, { fit: [qrSize, qrSize] });
   }
 
   // ==================== 2. TOP PARTY & METADATA GRID ====================
-  const gridY = 133;
+  const gridY = 134;
   const leftW = 258.58;
   const rightW = W - leftW; // 280pt exact
   const rightX = L + leftW;
@@ -360,7 +355,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     ],
   ];
 
-  // Resolve structured multi-line addresses & states
   const sellerAddr = addressLines(
     seller.address ||
       seller.registered_address ||
@@ -383,113 +377,114 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const buyerGstin = s(buyer.gstin);
   const buyerState = resolveState(buyer, buyerGstin);
 
-  const keyColX = L + 60; // Exact Tally colon X-position for Consignee & Buyer
+  // Widened keyColX (L + 66) so 8.2pt "State Name" never touches the colon
+  const keyColX = L + 66;
 
-  // Render Seller Block (zero dead whitespace below last line)
-  let py = gridY + 3;
-  text(s(seller.legal_name || seller.business_name), L + 4, py, leftW - 8, { bold: true, size: 8.1 });
-  py += 9.5;
+  // Render Seller Block (9pt Bold name, 8.2pt details)
+  let py = gridY + 3.5;
+  text(s(seller.legal_name || seller.business_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
+  py += 11;
   sellerAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 7.4 });
-    py += 8.5;
+    text(line, L + 4, py, leftW - 8, { size: 8.2 });
+    py += 9.6;
   });
   if (sellerMsme) {
-    text(`MSME: ${sellerMsme}`, L + 4, py, leftW - 8, { size: 7.4 });
-    py += 8.5;
+    text(`MSME: ${sellerMsme}`, L + 4, py, leftW - 8, { size: 8.2 });
+    py += 9.6;
   }
   if (seller.gstin) {
-    text(`GSTIN/UIN: ${s(seller.gstin)}`, L + 4, py, leftW - 8, { size: 7.4 });
-    py += 8.5;
+    text(`GSTIN/UIN: ${s(seller.gstin)}`, L + 4, py, leftW - 8, { size: 8.2 });
+    py += 9.6;
   }
   if (sellerState.name || sellerState.code) {
     text(`State Name : ${sellerState.name}, Code : ${sellerState.code}`, L + 4, py, leftW - 8, {
-      size: 7.4,
+      size: 8.2,
     });
-    py += 9.5;
+    py += 10.5;
   }
 
-  const consigneeY = py + 1;
+  const consigneeY = py + 1.5;
   hline(consigneeY, L, rightX);
 
-  // Render Consignee Block
-  py = consigneeY + 2.5;
-  text("Consignee (Ship to)", L + 4, py, leftW - 8, { size: 7 });
-  py += 8.8;
-  text(s(delivery.name || buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 8 });
-  py += 9.2;
+  // Render Consignee Block (7.8pt label, 9pt Bold name, 8.2pt details)
+  py = consigneeY + 3;
+  text("Consignee (Ship to)", L + 4, py, leftW - 8, { size: 7.8 });
+  py += 9.8;
+  text(s(delivery.name || buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
+  py += 10.5;
   consigneeAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 7.3 });
-    py += 8.4;
+    text(line, L + 4, py, leftW - 8, { size: 8.2 });
+    py += 9.6;
   });
   if (consigneeGstin) {
-    text("GSTIN/UIN", L + 4, py, 54, { size: 7.3 });
-    text(`: ${consigneeGstin}`, keyColX, py, leftW - 66, { size: 7.3 });
-    py += 8.4;
+    text("GSTIN/UIN", L + 4, py, 60, { size: 8.2 });
+    text(`: ${consigneeGstin}`, keyColX, py, leftW - 72, { size: 8.2 });
+    py += 9.6;
   }
   if (consigneeState.name || consigneeState.code) {
-    text("State Name", L + 4, py, 54, { size: 7.3 });
-    text(`: ${consigneeState.name}, Code : ${consigneeState.code}`, keyColX, py, leftW - 66, {
-      size: 7.3,
+    text("State Name", L + 4, py, 60, { size: 8.2 });
+    text(`: ${consigneeState.name}, Code : ${consigneeState.code}`, keyColX, py, leftW - 72, {
+      size: 8.2,
     });
-    py += 9.2;
+    py += 10.5;
   }
 
-  const buyerY = py + 1;
+  const buyerY = py + 1.5;
   hline(buyerY, L, rightX);
 
-  // Render Buyer Block
-  py = buyerY + 2.5;
-  text("Buyer (Bill to)", L + 4, py, leftW - 8, { size: 7 });
-  py += 8.8;
-  text(s(buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 8 });
-  py += 9.2;
+  // Render Buyer Block (7.8pt label, 9pt Bold name, 8.2pt details)
+  py = buyerY + 3;
+  text("Buyer (Bill to)", L + 4, py, leftW - 8, { size: 7.8 });
+  py += 9.8;
+  text(s(buyer.legal_name), L + 4, py, leftW - 8, { bold: true, size: 9 });
+  py += 10.5;
   buyerAddr.forEach((line) => {
-    text(line, L + 4, py, leftW - 8, { size: 7.3 });
-    py += 8.4;
+    text(line, L + 4, py, leftW - 8, { size: 8.2 });
+    py += 9.6;
   });
   if (buyerGstin) {
-    text("GSTIN/UIN", L + 4, py, 54, { size: 7.3 });
-    text(`: ${buyerGstin}`, keyColX, py, leftW - 66, { size: 7.3 });
-    py += 8.4;
+    text("GSTIN/UIN", L + 4, py, 60, { size: 8.2 });
+    text(`: ${buyerGstin}`, keyColX, py, leftW - 72, { size: 8.2 });
+    py += 9.6;
   }
   if (buyerState.name || buyerState.code) {
-    text("State Name", L + 4, py, 54, { size: 7.3 });
-    text(`: ${buyerState.name}, Code : ${buyerState.code}`, keyColX, py, leftW - 66, {
-      size: 7.3,
+    text("State Name", L + 4, py, 60, { size: 8.2 });
+    text(`: ${buyerState.name}, Code : ${buyerState.code}`, keyColX, py, leftW - 72, {
+      size: 8.2,
     });
-    py += 9.2;
+    py += 10.5;
   }
 
-  // Synchronize top grid height with compact Tally metadata rows (19.5pt each)
-  const metaRowH = 19.5;
-  const minRightTopH = metaPairs.length * metaRowH + 34; // 170.5pt
-  const topGridH = Math.max(py + 1.5 - gridY, minRightTopH);
+  // Synchronize top grid height with 21pt Tally metadata rows (7.8pt labels, 8.6pt Bold values)
+  const metaRowH = 21;
+  const minRightTopH = metaPairs.length * metaRowH + 36;
+  const topGridH = Math.max(py + 2 - gridY, minRightTopH);
 
   box(L, gridY, W, topGridH);
   vline(rightX, gridY, gridY + topGridH);
   vline(midRightX, gridY, gridY + metaPairs.length * metaRowH);
 
-  // Right Column: 7 pairs + Terms of Delivery
   metaPairs.forEach((pair, idx) => {
     const ry = gridY + idx * metaRowH;
     if (idx > 0) hline(ry, rightX, RIGHT);
     const [[l1, v1], [l2, v2]] = pair;
-    text(l1, rightX + 4, ry + 2, rightW / 2 - 8, { size: 6.9 });
-    text(v1, rightX + 4, ry + 10, rightW / 2 - 8, { bold: true, size: 7.8 });
-    text(l2, midRightX + 4, ry + 2, rightW / 2 - 8, { size: 6.9 });
-    text(v2, midRightX + 4, ry + 10, rightW / 2 - 8, { bold: true, size: 7.8 });
+    text(l1, rightX + 4, ry + 2.2, rightW / 2 - 8, { size: 7.8 });
+    text(v1, rightX + 4, ry + 11, rightW / 2 - 8, { bold: true, size: 8.6 });
+    text(l2, midRightX + 4, ry + 2.2, rightW / 2 - 8, { size: 7.8 });
+    text(v2, midRightX + 4, ry + 11, rightW / 2 - 8, { bold: true, size: 8.6 });
   });
 
   const termsY = gridY + metaPairs.length * metaRowH;
   hline(termsY, rightX, RIGHT);
-  text("Terms of Delivery", rightX + 4, termsY + 2, rightW - 8, { size: 6.9 });
+  text("Terms of Delivery", rightX + 4, termsY + 2.2, rightW - 8, { size: 7.8 });
   if (transport.terms) {
-    text(s(transport.terms), rightX + 4, termsY + 10.5, rightW - 8, { bold: true, size: 7.6 });
+    text(s(transport.terms), rightX + 4, termsY + 11.5, rightW - 8, { bold: true, size: 8.4 });
   }
 
   // ==================== 3. LINE ITEMS TABLE (UNIFIED CHAMBER) ====================
   let y = gridY + topGridH;
-  const colWidths = [22, 236.58, 48, 72, 54, 24, 82];
+  // Widened Amount column (88pt) so 10pt Bold ₹ Grand Total never clips
+  const colWidths = [22, 230.58, 48, 72, 54, 24, 88];
   const colX: number[] = [];
   colWidths.reduce((acc, w) => { colX.push(acc); return acc + w; }, L);
   const tableBottom = 760;
@@ -497,19 +492,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   let itemsChamberStartY = y;
 
   const drawItemsHeader = () => {
-    const hh = 21;
+    const hh = 23;
     box(L, y, W, hh);
     colX.slice(1).forEach((x) => vline(x, y, y + hh));
-    text("Sl", colX[0] + 1, y + 2, colWidths[0] - 2, { size: 7.3, align: "center" });
-    text("No.", colX[0] + 1, y + 10.5, colWidths[0] - 2, { size: 7.3, align: "center" });
+    text("Sl", colX[0] + 1, y + 2, colWidths[0] - 2, { size: 8, align: "center" });
+    text("No.", colX[0] + 1, y + 11.5, colWidths[0] - 2, { size: 8, align: "center" });
     const otherHeads = ["Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount"];
     otherHeads.forEach((h, idx) => {
       const i = idx + 1;
-      text(h, colX[i] + 2, y + 6, colWidths[i] - 4, { size: 7.5, align: "center" });
+      text(h, colX[i] + 2, y + 6.5, colWidths[i] - 4, { size: 8.2, align: "center" });
     });
     y += hh;
     itemsChamberStartY = y;
-    y += 2;
+    y += 2.5;
   };
 
   const closeItemsChamber = () => {
@@ -521,7 +516,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     closeItemsChamber();
     doc.addPage({ size: "A4", margin: 28.35 });
     y = 36;
-    text("Tax Invoice - " + s(invoice.invoice_number), L, 20, W, { bold: true, size: 9, align: "center" });
+    text("Tax Invoice - " + s(invoice.invoice_number), L, 20, W, { bold: true, size: 9.5, align: "center" });
     drawItemsHeader();
   };
 
@@ -530,9 +525,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   for (let index = 0; index < rows.length; index++) {
     const item = rows[index];
     const desc = s(item.description);
-    doc.font("Helvetica-Bold").fontSize(8);
+    doc.font("Helvetica-Bold").fontSize(9);
     const descH = doc.heightOfString(desc, { width: colWidths[1] - 8 });
-    const rowH = Math.max(15, Math.ceil(descH + 5));
+    const rowH = Math.max(16.5, Math.ceil(descH + 6));
     if (y + rowH + 92 > tableBottom) startNewItemsPage();
 
     if (index % 2 === 0) {
@@ -540,13 +535,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
 
     const qtyWithUnit = `${n(item.quantity).toFixed(3)} ${s(item.unit_code)}`.trim();
-    text(String(index + 1), colX[0] + 1, y + 2.5, colWidths[0] - 2, { size: 7.8, align: "center" });
-    text(desc, colX[1] + 4, y + 2.5, colWidths[1] - 8, { bold: true, size: 8 });
-    text(s(item.hsn_code), colX[2] + 2, y + 2.5, colWidths[2] - 4, { size: 7.8, align: "center" });
-    text(qtyWithUnit, colX[3] + 2, y + 2.5, colWidths[3] - 4, { bold: true, size: 7.8, align: "right" });
-    text(money(item.unit_rate), colX[4] + 2, y + 2.5, colWidths[4] - 4, { size: 7.8, align: "right" });
-    text(s(item.unit_code), colX[5] + 1, y + 2.5, colWidths[5] - 2, { size: 7.4, align: "center" });
-    text(money(item.taxable_value), colX[6] + 2, y + 2.5, colWidths[6] - 4, { bold: true, size: 8, align: "right" });
+    text(String(index + 1), colX[0] + 1, y + 3, colWidths[0] - 2, { size: 8.5, align: "center" });
+    text(desc, colX[1] + 4, y + 2.8, colWidths[1] - 8, { bold: true, size: 9 });
+    text(s(item.hsn_code), colX[2] + 2, y + 3, colWidths[2] - 4, { size: 8.5, align: "center" });
+    text(qtyWithUnit, colX[3] + 2, y + 3, colWidths[3] - 4, { bold: true, size: 8.5, align: "right" });
+    text(money(item.unit_rate), colX[4] + 2, y + 3, colWidths[4] - 4, { size: 8.5, align: "right" });
+    text(s(item.unit_code), colX[5] + 1, y + 3.2, colWidths[5] - 2, { size: 8, align: "center" });
+    text(money(item.taxable_value), colX[6] + 2, y + 2.8, colWidths[6] - 4, { bold: true, size: 9, align: "right" });
     y += rowH;
   }
 
@@ -559,50 +554,50 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         [`SGST @${sampleRate / 2}% OUTPUT TAX`, (sampleRate / 2).toFixed(2), n(invoice.sgst_total)],
       ];
 
-  y += 14;
+  y += 15;
   taxLines.forEach(([label, rateStr, amt], idx) => {
-    if (y + 14 + 92 > tableBottom) startNewItemsPage();
+    if (y + 15 + 92 > tableBottom) startNewItemsPage();
     if (idx === 0) {
-      fillRect(L + 0.4, y - 0.5, W - 0.8, 13, rowTint);
+      fillRect(L + 0.4, y - 0.5, W - 0.8, 14.5, rowTint);
     }
-    text(label, colX[1] + 4, y + 2, colWidths[1] - 6, { bold: true, italic: true, size: 8, align: "right" });
-    text(rateStr, colX[4] + 2, y + 2, colWidths[4] - 4, { italic: true, size: 7.8, align: "right" });
-    text("%", colX[5] + 1, y + 2, colWidths[5] - 2, { italic: true, size: 7.5, align: "center" });
-    text(money(amt), colX[6] + 2, y + 2, colWidths[6] - 4, { bold: true, size: 8, align: "right" });
-    y += 13.5;
+    text(label, colX[1] + 4, y + 2, colWidths[1] - 6, { bold: true, italic: true, size: 8.8, align: "right" });
+    text(rateStr, colX[4] + 2, y + 2.2, colWidths[4] - 4, { italic: true, size: 8.5, align: "right" });
+    text("%", colX[5] + 1, y + 2.2, colWidths[5] - 2, { italic: true, size: 8.2, align: "center" });
+    text(money(amt), colX[6] + 2, y + 2, colWidths[6] - 4, { bold: true, size: 9, align: "right" });
+    y += 15;
   });
 
-  if (y < 476) y = 476;
+  if (y < 492) y = 492;
   closeItemsChamber();
 
-  // Total Row with true vector ₹ glyph
-  const totalH = 17;
+  // Total Row with 10pt Bold ₹ Grand Total
+  const totalH = 19;
   if (y + totalH + 115 > 805) startNewItemsPage();
   box(L, y, W, totalH);
   colX.slice(1).forEach((x) => vline(x, y, y + totalH));
   const totalQty = rows.reduce((sum, item) => sum + n(item.quantity), 0);
   const firstUnit = rows.length ? s(rows[0].unit_code) : "";
-  text("Total", colX[1] + 4, y + 4, colWidths[1] - 6, { size: 7.8, align: "right" });
-  text(`${totalQty.toFixed(3)} ${firstUnit}`.trim(), colX[3] + 2, y + 4, colWidths[3] - 4, {
+  text("Total", colX[1] + 4, y + 4.8, colWidths[1] - 6, { size: 8.5, align: "right" });
+  text(`${totalQty.toFixed(3)} ${firstUnit}`.trim(), colX[3] + 2, y + 4.8, colWidths[3] - 4, {
     bold: true,
-    size: 7.8,
+    size: 8.5,
     align: "right",
   });
 
   const grandStr = money(invoice.grand_total);
-  doc.font("Helvetica-Bold").fontSize(8.8);
+  doc.font("Helvetica-Bold").fontSize(10);
   const grandNumW = doc.widthOfString(grandStr);
-  const rupeeX = RIGHT - 4 - grandNumW - 8.5;
-  drawRupee(rupeeX, y + 4, 8.8);
-  text(grandStr, colX[6] + 2, y + 3.8, colWidths[6] - 4, { bold: true, size: 8.8, align: "right" });
+  const rupeeX = RIGHT - 4 - grandNumW - 9.5;
+  drawRupee(rupeeX, y + 4.5, 10);
+  text(grandStr, colX[6] + 2, y + 4, colWidths[6] - 4, { bold: true, size: 10, align: "right" });
   y += totalH;
 
   // ==================== 4. AMOUNT IN WORDS ====================
-  const wordsH = 26;
+  const wordsH = 28;
   box(L, y, W, wordsH);
-  text("Amount Chargeable (in words)", L + 4, y + 2.5, 200, { size: 7.1 });
-  text("E. & O.E", RIGHT - 60, y + 2.5, 56, { size: 7.1, italic: true, align: "right" });
-  text(inrWords(n(invoice.grand_total)), L + 4, y + 12.5, W - 8, { bold: true, size: 8.3 });
+  text("Amount Chargeable (in words)", L + 4, y + 3, 220, { size: 7.8 });
+  text("E. & O.E", RIGHT - 60, y + 3, 56, { size: 7.8, italic: true, align: "right" });
+  text(inrWords(n(invoice.grand_total)), L + 4, y + 13.5, W - 8, { bold: true, size: 9.2 });
   y += wordsH;
 
   // ==================== 5. HSN/SAC TAX BREAKUP MATRIX ====================
@@ -617,98 +612,97 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     groups.set(key, g);
   });
 
-  // Exact Tally HSN column proportions summing to 538.58pt
   const hsnWidths = [166.58, 76, 40, 68, 40, 68, 80];
   const hsnX: number[] = [];
   hsnWidths.reduce((acc, w) => { hsnX.push(acc); return acc + w; }, L);
-  const hsnHeadH = 23;
+  const hsnHeadH = 25;
   box(L, y, W, hsnHeadH);
   vline(hsnX[1], y, y + hsnHeadH);
   vline(hsnX[2], y, y + hsnHeadH);
-  vline(hsnX[3], y + 11.5, y + hsnHeadH);
+  vline(hsnX[3], y + 12.5, y + hsnHeadH);
   vline(hsnX[4], y, y + hsnHeadH);
-  vline(hsnX[5], y + 11.5, y + hsnHeadH);
+  vline(hsnX[5], y + 12.5, y + hsnHeadH);
   vline(hsnX[6], y, y + hsnHeadH);
-  hline(y + 11.5, hsnX[2], hsnX[6]);
+  hline(y + 12.5, hsnX[2], hsnX[6]);
 
-  text("HSN/SAC", hsnX[0], y + 7, hsnWidths[0], { size: 7.4, align: "center" });
-  text("Taxable", hsnX[1], y + 2.5, hsnWidths[1], { size: 7.1, align: "center" });
-  text("Value", hsnX[1], y + 11.5, hsnWidths[1], { size: 7.1, align: "center" });
+  text("HSN/SAC", hsnX[0], y + 7.5, hsnWidths[0], { size: 8.2, align: "center" });
+  text("Taxable", hsnX[1], y + 2.5, hsnWidths[1], { size: 8, align: "center" });
+  text("Value", hsnX[1], y + 12.5, hsnWidths[1], { size: 8, align: "center" });
   if (hasIgst) {
-    text("IGST", hsnX[2], y + 1.8, hsnWidths[2] + hsnWidths[3], { size: 7.1, align: "center" });
-    text("Rate", hsnX[2], y + 13.5, hsnWidths[2], { size: 6.9, align: "center" });
-    text("Amount", hsnX[3], y + 13.5, hsnWidths[3], { size: 6.9, align: "center" });
-    text("—", hsnX[4], y + 7.5, hsnWidths[4] + hsnWidths[5], { size: 7.1, align: "center" });
+    text("IGST", hsnX[2], y + 2, hsnWidths[2] + hsnWidths[3], { size: 8, align: "center" });
+    text("Rate", hsnX[2], y + 14.5, hsnWidths[2], { size: 7.8, align: "center" });
+    text("Amount", hsnX[3], y + 14.5, hsnWidths[3], { size: 7.8, align: "center" });
+    text("—", hsnX[4], y + 8, hsnWidths[4] + hsnWidths[5], { size: 8, align: "center" });
   } else {
-    text("CGST", hsnX[2], y + 1.8, hsnWidths[2] + hsnWidths[3], { size: 7.1, align: "center" });
-    text("Rate", hsnX[2], y + 13.5, hsnWidths[2], { size: 6.9, align: "center" });
-    text("Amount", hsnX[3], y + 13.5, hsnWidths[3], { size: 6.9, align: "center" });
-    text("SGST/UTGST", hsnX[4], y + 1.8, hsnWidths[4] + hsnWidths[5], { size: 7.1, align: "center" });
-    text("Rate", hsnX[4], y + 13.5, hsnWidths[4], { size: 6.9, align: "center" });
-    text("Amount", hsnX[5], y + 13.5, hsnWidths[5], { size: 6.9, align: "center" });
+    text("CGST", hsnX[2], y + 2, hsnWidths[2] + hsnWidths[3], { size: 8, align: "center" });
+    text("Rate", hsnX[2], y + 14.5, hsnWidths[2], { size: 7.8, align: "center" });
+    text("Amount", hsnX[3], y + 14.5, hsnWidths[3], { size: 7.8, align: "center" });
+    text("SGST/UTGST", hsnX[4], y + 2, hsnWidths[4] + hsnWidths[5], { size: 8, align: "center" });
+    text("Rate", hsnX[4], y + 14.5, hsnWidths[4], { size: 7.8, align: "center" });
+    text("Amount", hsnX[5], y + 14.5, hsnWidths[5], { size: 7.8, align: "center" });
   }
-  text("Total", hsnX[6], y + 2.5, hsnWidths[6], { size: 7.1, align: "center" });
-  text("Tax Amount", hsnX[6], y + 11.5, hsnWidths[6], { size: 7.1, align: "center" });
+  text("Total", hsnX[6], y + 2.5, hsnWidths[6], { size: 8, align: "center" });
+  text("Tax Amount", hsnX[6], y + 12.5, hsnWidths[6], { size: 8, align: "center" });
   y += hsnHeadH;
 
   const taxTotal = n(invoice.cgst_total) + n(invoice.sgst_total) + n(invoice.igst_total);
   for (const g of groups.values()) {
-    const rh = 14;
+    const rh = 15.5;
     box(L, y, W, rh);
     hsnX.slice(1).forEach((x) => vline(x, y, y + rh));
     const half = (g.rate / 2).toFixed(2) + "%";
-    text(g.hsn, hsnX[0] + 4, y + 2.8, hsnWidths[0] - 8, { size: 7.5 });
-    text(money(g.taxable), hsnX[1] + 2, y + 2.8, hsnWidths[1] - 4, { size: 7.5, align: "right" });
+    text(g.hsn, hsnX[0] + 4, y + 3, hsnWidths[0] - 8, { size: 8.2 });
+    text(money(g.taxable), hsnX[1] + 2, y + 3, hsnWidths[1] - 4, { size: 8.2, align: "right" });
     if (hasIgst) {
-      text(g.rate.toFixed(2) + "%", hsnX[2] + 2, y + 2.8, hsnWidths[2] - 4, { size: 7.5, align: "right" });
-      text(money(g.igst), hsnX[3] + 2, y + 2.8, hsnWidths[3] - 4, { size: 7.5, align: "right" });
-      text("—", hsnX[4] + 2, y + 2.8, hsnWidths[4] + hsnWidths[5] - 4, { size: 7.5, align: "center" });
+      text(g.rate.toFixed(2) + "%", hsnX[2] + 2, y + 3, hsnWidths[2] - 4, { size: 8.2, align: "right" });
+      text(money(g.igst), hsnX[3] + 2, y + 3, hsnWidths[3] - 4, { size: 8.2, align: "right" });
+      text("—", hsnX[4] + 2, y + 3, hsnWidths[4] + hsnWidths[5] - 4, { size: 8.2, align: "center" });
     } else {
-      text(half, hsnX[2] + 2, y + 2.8, hsnWidths[2] - 4, { size: 7.5, align: "right" });
-      text(money(g.cgst), hsnX[3] + 2, y + 2.8, hsnWidths[3] - 4, { size: 7.5, align: "right" });
-      text(half, hsnX[4] + 2, y + 2.8, hsnWidths[4] - 4, { size: 7.5, align: "right" });
-      text(money(g.sgst), hsnX[5] + 2, y + 2.8, hsnWidths[5] - 4, { size: 7.5, align: "right" });
+      text(half, hsnX[2] + 2, y + 3, hsnWidths[2] - 4, { size: 8.2, align: "right" });
+      text(money(g.cgst), hsnX[3] + 2, y + 3, hsnWidths[3] - 4, { size: 8.2, align: "right" });
+      text(half, hsnX[4] + 2, y + 3, hsnWidths[4] - 4, { size: 8.2, align: "right" });
+      text(money(g.sgst), hsnX[5] + 2, y + 3, hsnWidths[5] - 4, { size: 8.2, align: "right" });
     }
-    text(money(g.cgst + g.sgst + g.igst), hsnX[6] + 2, y + 2.8, hsnWidths[6] - 4, { size: 7.5, align: "right" });
+    text(money(g.cgst + g.sgst + g.igst), hsnX[6] + 2, y + 3, hsnWidths[6] - 4, { size: 8.2, align: "right" });
     y += rh;
   }
 
-  const hsnTotH = 14;
+  const hsnTotH = 15.5;
   box(L, y, W, hsnTotH);
   hsnX.slice(1).forEach((x) => vline(x, y, y + hsnTotH));
-  text("Total", hsnX[0] + 4, y + 2.8, hsnWidths[0] - 6, { bold: true, size: 7.5, align: "right" });
-  text(money(rows.reduce((sum, item) => sum + n(item.taxable_value), 0)), hsnX[1] + 2, y + 2.8, hsnWidths[1] - 4, {
+  text("Total", hsnX[0] + 4, y + 3, hsnWidths[0] - 6, { bold: true, size: 8.2, align: "right" });
+  text(money(rows.reduce((sum, item) => sum + n(item.taxable_value), 0)), hsnX[1] + 2, y + 3, hsnWidths[1] - 4, {
     bold: true,
-    size: 7.5,
+    size: 8.2,
     align: "right",
   });
   if (hasIgst) {
-    text(money(invoice.igst_total), hsnX[3] + 2, y + 2.8, hsnWidths[3] - 4, { bold: true, size: 7.5, align: "right" });
+    text(money(invoice.igst_total), hsnX[3] + 2, y + 3, hsnWidths[3] - 4, { bold: true, size: 8.2, align: "right" });
   } else {
-    text(money(invoice.cgst_total), hsnX[3] + 2, y + 2.8, hsnWidths[3] - 4, { bold: true, size: 7.5, align: "right" });
-    text(money(invoice.sgst_total), hsnX[5] + 2, y + 2.8, hsnWidths[5] - 4, { bold: true, size: 7.5, align: "right" });
+    text(money(invoice.cgst_total), hsnX[3] + 2, y + 3, hsnWidths[3] - 4, { bold: true, size: 8.2, align: "right" });
+    text(money(invoice.sgst_total), hsnX[5] + 2, y + 3, hsnWidths[5] - 4, { bold: true, size: 8.2, align: "right" });
   }
-  text(money(taxTotal), hsnX[6] + 2, y + 2.8, hsnWidths[6] - 4, { bold: true, size: 7.5, align: "right" });
+  text(money(taxTotal), hsnX[6] + 2, y + 3, hsnWidths[6] - 4, { bold: true, size: 8.2, align: "right" });
   y += hsnTotH;
 
   // ==================== 6. FOOTER: TAX WORDS, BANK, DECLARATION & SIGNATORY ====================
-  if (y + 115 > 805) {
+  if (y + 120 > 805) {
     doc.addPage({ size: "A4", margin: 28.35 });
     y = 28.35;
   }
 
-  const footerBoxH = 100;
+  const footerBoxH = 108;
   box(L, y, W, footerBoxH);
 
-  // Tax Amount in Words at top of footer box
-  text("Tax Amount (in words)  :", L + 4, y + 4, 92, { size: 7.3 });
-  text(inrWords(taxTotal), L + 96, y + 4, W - 100, { bold: true, size: 8 });
+  // Tax Amount in Words at top of footer box (8.8pt Bold Tally scale)
+  text("Tax Amount (in words)  :", L + 4, y + 4, 102, { size: 8 });
+  text(inrWords(taxTotal), L + 106, y + 4, W - 110, { bold: true, size: 8.8 });
 
   // Bank Details aligned directly with left edge of Signatory Box (L + W * 0.465)
   const sigX = Math.round((L + W * 0.465) * 100) / 100;
   const sigW = RIGHT - sigX;
   const bankX = sigX + 4;
-  text("Company's Bank Details", bankX, y + 16, sigW - 8, { size: 7.4 });
+  text("Company's Bank Details", bankX, y + 18, sigW - 8, { size: 8.2 });
   const bankPairs = ([
     ["Bank Name", s(bank?.bank_name)],
     ["A/c No.", s(bank?.account_number)],
@@ -716,41 +710,41 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   ] as [string, string][]).filter(([, val]) => Boolean(val));
 
   bankPairs.forEach(([k, v], i) => {
-    const by = y + 26 + i * 9.5;
-    text(k, bankX, by, 76, { size: 7.3 });
-    text(":  " + v, bankX + 76, by, RIGHT - (bankX + 80), { bold: true, size: 7.5 });
+    const by = y + 29 + i * 10.5;
+    text(k, bankX, by, 84, { size: 8.1 });
+    text(":  " + v, bankX + 84, by, RIGHT - (bankX + 88), { bold: true, size: 8.3 });
   });
 
-  // Declaration (Bottom Left)
-  text("Declaration", L + 4, y + 62, sigX - L - 10, { size: 7.3, underline: true });
+  // Declaration (Bottom Left, 8pt Tally scale)
+  text("Declaration", L + 4, y + 66, sigX - L - 10, { size: 8, underline: true });
   text(
     "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
     L + 4,
-    y + 72,
+    y + 77,
     sigX - L - 10,
-    { size: 7.3, lineGap: 0.7 }
+    { size: 8, lineGap: 0.8 }
   );
 
   // Authorised Signatory Box (Bottom Right, aligned flush with Bank Details left margin)
-  const sigH = 42;
-  const sigY = y + footerBoxH - sigH; // y + 58
+  const sigH = 44;
+  const sigY = y + footerBoxH - sigH; // y + 64 (cleanly below Branch & IFS Code at y + 50)
   hline(sigY, sigX, RIGHT);
   vline(sigX, sigY, y + footerBoxH);
   text("for " + s(seller.legal_name || seller.business_name), sigX + 4, sigY + 4, sigW - 10, {
     bold: true,
-    size: 7.7,
+    size: 8.5,
     align: "right",
   });
-  text("Authorised Signatory", sigX + 4, sigY + sigH - 12, sigW - 10, { size: 7.4, align: "right" });
+  text("Authorised Signatory", sigX + 4, sigY + sigH - 13, sigW - 10, { size: 8.1, align: "right" });
 
   // Bottom Centered Note outside border
-  text("This is a Computer Generated Invoice", L, y + footerBoxH + 4, W, { size: 7.3, align: "center" });
+  text("This is a Computer Generated Invoice", L, y + footerBoxH + 4.5, W, { size: 8, align: "center" });
 
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
     if (range.count > 1) {
-      text(`Page ${i + 1} of ${range.count}`, L, 818, W, { size: 7, align: "right" });
+      text(`Page ${i + 1} of ${range.count}`, L, 818, W, { size: 7.5, align: "right" });
     }
   }
 

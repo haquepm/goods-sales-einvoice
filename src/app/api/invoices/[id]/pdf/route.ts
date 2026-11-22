@@ -58,6 +58,10 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const consignee=(invoice.delivery_details||{}) as AnyRow;
  const transport=(invoice.transport_details||{}) as AnyRow;
  const rows=items||[];
+ let qrBuffer:Buffer|undefined;
+ if(invoice.status==="irp_registered"&&invoice.signed_qr_code){
+  try{const qr=await QRCode.toDataURL(invoice.signed_qr_code,{errorCorrectionLevel:"M",margin:1,width:180});qrBuffer=Buffer.from(qr.split(",")[1],"base64");}catch{/* malformed provider QR is omitted */}
+ }
  const doc=new PDFDocument({size:"A4",margin:27,autoFirstPage:true,bufferPages:true,info:{Title:"Tax Invoice "+invoice.invoice_number,Author:safe(seller.legal_name)||"Goods Sales e-Invoice",Subject:"Goods sales tax invoice"}});
  const chunks:Buffer[]=[];
  const pdfPromise=new Promise<Buffer>((resolve,reject)=>{doc.on("data",(c:Buffer)=>chunks.push(c));doc.on("end",()=>resolve(Buffer.concat(chunks)));doc.on("error",reject);});
@@ -67,8 +71,9 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const box=(x:number,yy:number,w:number,h:number)=>doc.rect(x,yy,w,h).lineWidth(.45).strokeColor("#555555").stroke();
  const newPage=()=>{doc.addPage({size:"A4",margin:27});page++;y=27;header(false);};
  const header=(first:boolean)=>{
-  txt("TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
-  if(invoice.irn){txt("e-Invoice  |  IRN: "+invoice.irn,L,y,W,{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W,{size:6.2});y+=12;}
+  txt(invoice.status==="irp_registered"?"TAX INVOICE":"DRAFT - NOT A TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
+  if(first&&qrBuffer)doc.image(qrBuffer,R-67,24,{fit:[62,62]});
+  if(invoice.irn){txt("e-Invoice  |  IRN: "+invoice.irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=12;}
   line(y);y+=5;
   const top=y;
   box(L,top,W,first?72:45);

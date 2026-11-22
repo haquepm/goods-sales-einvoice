@@ -160,3 +160,29 @@ The reference PDFs are visual/layout references only. Seller, buyer, GST, bank a
 ## Legal and tax review
 
 The software is a workflow and document-generation tool, not a substitute for professional GST advice. Before production, verify current IRP schema/provider requirements, GST applicability, HSN/tax treatment, invoice numbering, cancellation rules, retention and other statutory requirements with a qualified GST professional and the authorised provider.
+
+
+## Current implementation status
+
+- [x] Multi-business database foundation and tenant RLS
+- [x] Auth email/password sign-in, sign-up and PKCE callback
+- [x] Server-side session refresh for Next.js 15 middleware
+- [x] Atomic business + GST profile onboarding; creator becomes owner through the database trigger
+- [x] Authenticated workspace landing page
+- [ ] Customer and product master screens
+- [ ] Invoice creation, tax calculation and sequence allocation
+- [ ] IRP provider integration and signed response verification
+- [ ] Tally-style PDF generation
+- [ ] Excel preview and bulk invoice generation
+
+### Local setup
+
+Copy `.env.example` to `.env.local` and set:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://iqltunrvlosxdxucibef.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Use the publishable key from Supabase Project Settings → API Keys. Never use the service-role/secret key in this variable or in browser code. Configure the Auth Site URL and redirect URL to include your local app URL and `/auth/callback`, then configure the production domain before deployment.

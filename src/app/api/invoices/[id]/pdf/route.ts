@@ -38,7 +38,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const cell=(v:unknown,x:number,yy:number,w:number,o:R={})=>t(v,x+3,yy+3,w-6,o);
  let qr:Buffer|undefined;try{qr=Buffer.from((await QRCode.toDataURL(s(inv.generated_irn||inv.invoice_number),{margin:1,width:180})).split(",")[1],"base64");}catch{}
  t(inv.status==="draft"?"Draft Tax Invoice":"Tax Invoice",L,y,W,{bold:true,size:10,align:"center"});
- t("Invoice Reference QR",R-96,y,92,{size:5,align:"center"});if(qr)doc.image(qr,R-88,y+10,{fit:[76,76]});y+=17;
+ t("e-Invoice",R-104,y,100,{size:6.2,bold:true,align:"center"});if(qr)doc.image(qr,R-102,y+12,{fit:[96,96]});y+=17;
  t("IRN / Invoice Reference:",L+4,y,105,{bold:true,size:5.8});t(inv.generated_irn,L+110,y,W-210,{size:5.5});y+=10;
  if(inv.status==="irp_registered"&&inv.irn){t("IRP IRN: "+inv.irn,L+4,y,280);t("Ack No.: "+s(inv.acknowledgement_number)+"  Ack Date: "+d(inv.acknowledgement_date),L+285,y,270);y+=11;}
  const left=236,right=W-left,top=y,meta=[
@@ -51,7 +51,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  ["Bill of Lading/LR-RR No.",tr.lr_number,"Motor Vehicle No.",tr.vehicle_number],
  ["Terms of Delivery",tr.terms,"Place of Supply",inv.place_of_supply_state_code]
  ];
- rect(L,top,left,66);rect(L+left,top,right,112);
+ rect(L,top,left,112);rect(L+left,top,right,112);
  t(s(seller.legal_name),L+4,top+4,left-8,{bold:true,size:7});
  [a(seller.address),seller.gstin?"GSTIN/UIN: "+seller.gstin:"",seller.state_name?"State Name: "+seller.state_name+"  Code: "+s(seller.state_code):"",seller.email?"E-Mail: "+seller.email:"",seller.phone?"Phone: "+seller.phone:""].filter(Boolean).forEach((v,i)=>t(v,L+4,top+15+i*9,left-8,{size:5.7}));
  meta.forEach((r,i)=>{const yy=top+i*14;if(i)line(yy,L+left,R);t(r[0],L+left+4,yy+3,91,{size:5.2});t(r[1],L+left+97,yy+3,77,{size:5.4,bold:true});t(r[2],L+left+178,yy+3,76,{size:5.2});t(r[3],L+left+256,yy+3,right-260,{size:5.4});});

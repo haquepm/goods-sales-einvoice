@@ -64,11 +64,12 @@ export async function GET(request: NextRequest) {
 
   const cookie = request.headers.get("cookie") || "";
   const files: { name: string; data: Buffer }[] = [];
+  let skipped = 0;
   for (const invoice of all) {
     const response = await fetch(new URL(`/api/invoices/${invoice.id}/pdf`, request.url), {
       headers: { cookie }, cache: "no-store",
     });
-    if (!response.ok) continue;
+    if (!response.ok) { skipped++; continue; }
     const name = String(invoice.invoice_number).replace(/[^a-zA-Z0-9._-]/g, "_") + ".pdf";
     files.push({ name, data: Buffer.from(await response.arrayBuffer()) });
   }
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
       "Content-Disposition": 'attachment; filename="all-goods-invoices.zip"',
       "Cache-Control": "private, no-store",
       "Content-Length": String(archive.length),
+      "X-Invoice-PDF-Count": String(files.length),
+      "X-Invoice-PDF-Skipped": String(skipped),
+      "Access-Control-Expose-Headers": "X-Invoice-PDF-Count, X-Invoice-PDF-Skipped",
     },
   });
 }

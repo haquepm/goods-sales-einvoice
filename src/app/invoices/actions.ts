@@ -55,3 +55,20 @@ export async function issueInvoice(formData:FormData){
  revalidatePath("/invoices");revalidatePath("/invoices/"+id);
  redirect("/invoices/"+id+"?success=Invoice%20issued");
 }
+
+
+export async function issueAllDraftInvoices() {
+ const supabase=await createClient();
+ const {data:claims}=await supabase.auth.getClaims();
+ if(!claims?.claims?.sub) redirect("/login");
+ const {data:businesses}=await supabase.from("businesses").select("id").order("created_at",{ascending:true}).limit(1);
+ if(!businesses?.[0]) redirect("/onboarding");
+ const businessId=businesses[0].id;
+ const {data:membership}=await supabase.from("business_users").select("role").eq("business_id",businessId).eq("user_id",claims.claims.sub).eq("is_active",true).maybeSingle();
+ if(!membership||!["owner","admin","accountant"].includes(membership.role)) redirect("/invoices?error=You%20do%20not%20have%20permission%20to%20issue%20invoices");
+ const {data:issued,error}=await supabase.from("goods_invoices").update({status:"issued",updated_at:new Date().toISOString()}).eq("business_id",businessId).eq("status","draft").select("id,invoice_number,grand_total");
+ if(error) redirect("/invoices?error=Unable%20to%20issue%20draft%20invoices");
+ if(issued?.length) await supabase.from("business_audit_logs").insert(issued.map(i=>({business_id:businessId,actor_id:claims.claims.sub,action:"invoice.issued",entity_type:"goods_invoice",entity_id:i.id,after_data:{invoice_number:i.invoice_number,grand_total:i.grand_total,bulk:true}})));
+ revalidatePath("/invoices");
+ redirect("/invoices?success="+encodeURIComponent(`${issued?.length||0} draft invoice(s) issued`));
+}

@@ -27,6 +27,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div className="field"><label>Legal business name *</label><input name="legal_name" required defaultValue={gst?.legal_name || business.legal_name}/></div>
           <div className="field"><label>Trade name</label><input name="trade_name" defaultValue={business.trade_name || ""}/></div>
           <div className="field"><label>GSTIN</label><input name="gstin" maxLength={15} defaultValue={gst?.gstin || ""}/></div>
+          <div className="field"><label>MSME / Udyam Registration Number</label><input name="msme_number" defaultValue={gst?.msme_number || ""}/></div>
           <div className="field"><label>Address line 1</label><input name="address_line_1" defaultValue={gst?.address_line_1 || ""}/></div>
           <div className="field"><label>Address line 2</label><input name="address_line_2" defaultValue={gst?.address_line_2 || ""}/></div>
           <div className="form-grid"><div className="field"><label>City</label><input name="city" defaultValue={gst?.city || ""}/></div><div className="field"><label>District</label><input name="district" defaultValue={gst?.district || ""}/></div></div>

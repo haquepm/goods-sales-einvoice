@@ -73,7 +73,7 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const header=(first:boolean)=>{
   txt(invoice.status==="irp_registered"?"TAX INVOICE":"DRAFT - NOT A TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
   if(first&&qrBuffer)doc.image(qrBuffer,R-67,24,{fit:[62,62]});
-  if(invoice.generated_irn){txt("IRN: "+invoice.generated_irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;
+  if(invoice.generated_irn){txt("IRN: "+invoice.generated_irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;}
   if(invoice.status==="irp_registered"&&invoice.irn){txt("IRP Registration IRN: "+invoice.irn,L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=10;txt("Ack No.: "+safe(invoice.acknowledgement_number)+"   Ack Date: "+(invoice.acknowledgement_date?new Date(invoice.acknowledgement_date).toLocaleString("en-IN"):""),L,y,W-(first&&qrBuffer?75:0),{size:6.2});y+=12;}
   line(y);y+=5;
   const top=y;

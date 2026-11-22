@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 

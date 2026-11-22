@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { saveBankAccount, saveBusinessProfile } from "./actions";
+import { saveBankAccount, saveBusinessProfile, uploadSealSignature } from "./actions";
 
 export const dynamic = "force-dynamic";
 type Search = { error?: string; success?: string };
@@ -13,9 +13,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { data: businesses } = await supabase.from("businesses").select("id,legal_name,trade_name").order("created_at", { ascending: true }).limit(1);
   if (!businesses?.[0]) redirect("/onboarding");
   const business = businesses[0];
-  const [{ data: gst }, { data: banks }] = await Promise.all([
+  const [{ data: gst }, { data: banks }, { data: sealPreview }] = await Promise.all([
     supabase.from("business_gst_settings").select("*").eq("business_id", business.id).maybeSingle(),
-    supabase.from("business_bank_accounts").select("*").eq("business_id", business.id).order("is_default", { ascending: false }).order("created_at", { ascending: false })
+    supabase.from("business_bank_accounts").select("*").eq("business_id", business.id).order("is_default", { ascending: false }).order("created_at", { ascending: false }),
+    supabase.storage.from("invoice-assets").createSignedUrl(`${business.id}/seal-signature.png`, 3600)
   ]);
   return <div className="module-page">
     <header className="module-header"><Link className="module-brand" href="/app"><span className="brand-mark">GI</span> Goods Invoice</Link><Link className="back-link" href="/app">← Workspace</Link></header>
@@ -36,6 +37,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div className="field"><label>Email</label><input name="email" type="email" defaultValue={gst?.email || ""}/></div>
           <button className="primary-btn form-button" type="submit">Save business profile</button>
         </form></section>
+        <section className="module-card"><div className="panel-kicker">INVOICE SEAL & SIGNATURE</div><h2 className="module-card-title">Upload company seal and authorised signature</h2>
+          <p className="line-meta">Upload one transparent PNG. It will be placed in the authorised signatory area of every newly generated invoice PDF.</p>
+          {sealPreview?.signedUrl && <div style={{margin:"12px 0",padding:12,border:"1px solid #e5e7eb",borderRadius:8,background:"#fff"}}><img src={sealPreview.signedUrl} alt="Current company seal and signature" style={{maxWidth:220,maxHeight:120,objectFit:"contain"}}/><p className="line-meta">Current seal and signature</p></div>}
+          <form action={uploadSealSignature} encType="multipart/form-data" className="data-form">
+            <div className="field"><label>Seal & signature PNG *</label><input type="file" name="seal_signature" accept="image/png,.png" required/></div>
+            <button className="primary-btn form-button" type="submit">Upload seal & signature</button>
+          </form>
+        </section>
         <section className="module-card"><div className="panel-kicker">BANK DETAILS</div><h2 className="module-card-title">Invoice payment details</h2>
           {banks?.map(bank=><div className="bank-summary" key={bank.id}><strong>{bank.bank_name}</strong><p>{bank.account_holder_name} · A/c ending {String(bank.account_number).slice(-4)}</p><p>IFSC: {bank.ifsc_code} · {bank.branch_name || ""}</p>{bank.is_default && <span className="setup-chip">Default account</span>}</div>)}
           <form action={saveBankAccount} className="data-form">

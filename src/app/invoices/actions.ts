@@ -47,6 +47,8 @@ export async function issueInvoice(formData:FormData){
  if(!claims?.claims?.sub)redirect("/login");
  const {data:businesses}=await supabase.from("businesses").select("id").order("created_at",{ascending:true}).limit(1);
  if(!businesses?.[0])redirect("/onboarding");
+ const {data:membership}=await supabase.from("business_users").select("role").eq("business_id",businesses[0].id).eq("user_id",claims.claims.sub).eq("is_active",true).maybeSingle();
+ if(!membership||!["owner","admin","accountant"].includes(membership.role))redirect("/invoices/"+id+"?error=You%20do%20not%20have%20permission%20to%20issue%20invoices");
  const {data:invoice,error}=await supabase.from("goods_invoices").update({status:"issued",updated_at:new Date().toISOString()}).eq("id",id).eq("business_id",businesses[0].id).eq("status","draft").select("id,invoice_number,grand_total").maybeSingle();
  if(error||!invoice)redirect("/invoices/"+id+"?error=Invoice%20could%20not%20be%20issued");
  await supabase.from("business_audit_logs").insert({business_id:businesses[0].id,actor_id:claims.claims.sub,action:"invoice.issued",entity_type:"goods_invoice",entity_id:id,after_data:{invoice_number:invoice.invoice_number,grand_total:invoice.grand_total}});

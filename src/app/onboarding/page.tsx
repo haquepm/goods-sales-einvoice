@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createBusiness } from "./actions";
 
+export const dynamic = "force-dynamic";
+
 type Props = { searchParams: Promise<{ error?: string }> };
 
 export default async function OnboardingPage({ searchParams }: Props) {

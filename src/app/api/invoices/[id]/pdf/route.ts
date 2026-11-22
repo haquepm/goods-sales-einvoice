@@ -238,7 +238,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   // ==================== 1. HEADER & IRN / HIGH-DENSITY QR SECTION ====================
   const irnCode = s(invoice.generated_irn || einv.irn || invoice.irn);
   const ackNo = s(
-    invoice.ack_no ||
+    invoice.generated_ack_no ||
+      invoice.ack_no ||
       invoice.irn_ack_no ||
       invoice.acknowledgement_no ||
       einv.ack_no ||
@@ -327,16 +328,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const midRightX = rightX + rightW / 2;
 
   const buyerDeliveryAddress = buyer.shipping_address || buyer.billing_address || buyer.address;
-  const destinationVal = s(
-    transport.destination ||
-      delivery.destination ||
-      delivery.place_of_delivery ||
-      delivery.to_place ||
-      invoice.destination ||
-      (typeof buyerDeliveryAddress === "object"
-        ? [buyerDeliveryAddress.city, buyerDeliveryAddress.district, buyerDeliveryAddress.state].filter(Boolean).join(", ")
-        : "")
-  ) || "-";
+  const destinationVal = "BRAHMAPURAM";
 
   const metaPairs: [[string, string], [string, string]][] = [
     [

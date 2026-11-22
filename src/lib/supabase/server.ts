@@ -4,20 +4,14 @@ import { getPublicEnv } from "@/lib/env";
 
 export async function createClient() {
   const env = getPublicEnv();
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error("Supabase is not configured. Add the public URL and anon/publishable key to .env.local.");
-  }
-
+  if (!env.url || !env.key) throw new Error("Supabase is not configured. Add the project URL and publishable key to .env.local.");
   const cookieStore = await cookies();
-  return createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  return createServerClient(env.url, env.key, {
     cookies: {
-      getAll() { return cookieStore.getAll(); },
+      getAll: () => cookieStore.getAll(),
       setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        } catch {
-          // Server Components cannot always write cookies. Middleware/route handlers refresh sessions.
-        }
+        try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); }
+        catch { /* Server Components cannot write cookies; middleware refreshes sessions. */ }
       },
     },
   });

@@ -38,3 +38,18 @@ export async function createDraftInvoice(formData:FormData){
  revalidatePath("/invoices");
  redirect("/invoices/"+invoiceId);
 }
+
+export async function issueInvoice(formData:FormData){
+ const id=String(formData.get("invoice_id")||"");
+ if(!z.string().uuid().safeParse(id).success)redirect("/invoices");
+ const supabase=await createClient();
+ const {data:claims}=await supabase.auth.getClaims();
+ if(!claims?.claims?.sub)redirect("/login");
+ const {data:businesses}=await supabase.from("businesses").select("id").order("created_at",{ascending:true}).limit(1);
+ if(!businesses?.[0])redirect("/onboarding");
+ const {data:invoice,error}=await supabase.from("goods_invoices").update({status:"issued",updated_at:new Date().toISOString()}).eq("id",id).eq("business_id",businesses[0].id).eq("status","draft").select("id,invoice_number,grand_total").maybeSingle();
+ if(error||!invoice)redirect("/invoices/"+id+"?error=Invoice%20could%20not%20be%20issued");
+ await supabase.from("business_audit_logs").insert({business_id:businesses[0].id,actor_id:claims.claims.sub,action:"invoice.issued",entity_type:"goods_invoice",entity_id:id,after_data:{invoice_number:invoice.invoice_number,grand_total:invoice.grand_total}});
+ revalidatePath("/invoices");revalidatePath("/invoices/"+id);
+ redirect("/invoices/"+id+"?success=Invoice%20issued");
+}

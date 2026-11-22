@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 
+// PDFKit snapshot payloads are database JSON values with dynamic keys.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow=Record<string,any>;
 const money=(v:unknown)=>Number(v||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
 const safe=(v:unknown)=>String(v??"").trim();
@@ -65,11 +67,11 @@ export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>
  const doc=new PDFDocument({size:"A4",margin:27,autoFirstPage:true,bufferPages:true,info:{Title:"Tax Invoice "+invoice.invoice_number,Author:safe(seller.legal_name)||"Goods Sales e-Invoice",Subject:"Goods sales tax invoice"}});
  const chunks:Buffer[]=[];
  const pdfPromise=new Promise<Buffer>((resolve,reject)=>{doc.on("data",(c:Buffer)=>chunks.push(c));doc.on("end",()=>resolve(Buffer.concat(chunks)));doc.on("error",reject);});
- const L=27,R=568,W=R-L;let y=27;let page=1;
+ const L=27,R=568,W=R-L;let y=27;
  const line=(yy:number,x1=L,x2=R)=>{doc.moveTo(x1,yy).lineTo(x2,yy).lineWidth(.45).strokeColor("#555555").stroke();};
  const txt=(s:unknown,x:number,yy:number,w:number,opts:AnyRow={})=>doc.font(opts.bold?"Helvetica-Bold":"Helvetica").fontSize(opts.size||7.1).fillColor("#111111").text(safe(s),x,yy,{width:w,align:opts.align||"left",lineGap:0,...opts});
  const box=(x:number,yy:number,w:number,h:number)=>doc.rect(x,yy,w,h).lineWidth(.45).strokeColor("#555555").stroke();
- const newPage=()=>{doc.addPage({size:"A4",margin:27});page++;y=27;header(false);};
+ const newPage=()=>{doc.addPage({size:"A4",margin:27});y=27;header(false);};
  const header=(first:boolean)=>{
   txt(invoice.status==="irp_registered"?"TAX INVOICE":"DRAFT - NOT A TAX INVOICE",L,y,W,{bold:true,size:11,align:"center"});y+=17;
   if(first&&qrBuffer)doc.image(qrBuffer,R-67,24,{fit:[62,62]});

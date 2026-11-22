@@ -1,0 +1,1 @@
+alter type public.goods_invoice_status add value if not exists 'issued';

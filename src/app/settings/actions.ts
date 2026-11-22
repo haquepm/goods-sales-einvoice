@@ -58,3 +58,37 @@ export async function saveBankAccount(formData: FormData) {
   revalidatePath("/settings"); revalidatePath("/api/invoices");
   redirect("/settings?success=Bank%20account%20saved");
 }
+
+
+export async function uploadSealSignature(formData: FormData) {
+  const { supabase, businessId } = await getWorkspace();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/login");
+  const { data: membership } = await supabase
+    .from("business_users")
+    .select("role")
+    .eq("business_id", businessId)
+    .eq("user_id", userData.user.id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    redirect("/settings?error=Only%20business%20owners%20and%20admins%20can%20upload%20the%20seal");
+  }
+  const file = formData.get("seal_signature");
+  if (!(file instanceof File) || file.size === 0) redirect("/settings?error=Select%20a%20PNG%20file");
+  if (file.type !== "image/png" || !file.name.toLowerCase().endsWith(".png")) {
+    redirect("/settings?error=Only%20PNG%20images%20are%20accepted");
+  }
+  if (file.size > 2 * 1024 * 1024) redirect("/settings?error=PNG%20must%20be%202MB%20or%20smaller");
+  const { error } = await supabase.storage
+    .from("invoice-assets")
+    .upload(`${businessId}/seal-signature.png`, file, {
+      contentType: "image/png",
+      upsert: true,
+      cacheControl: "3600",
+    });
+  if (error) redirect("/settings?error=Unable%20to%20upload%20seal%20and%20signature");
+  revalidatePath("/settings");
+  revalidatePath("/invoices");
+  redirect("/settings?success=Seal%20and%20signature%20uploaded");
+}

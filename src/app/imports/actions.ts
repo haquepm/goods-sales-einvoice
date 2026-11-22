@@ -40,7 +40,7 @@ export async function previewExcelImport(formData:FormData){
  ]);
  if(!customer||!customer.data||products.error||products.data?.length!==3)redirect("/imports?error=Select%20an%20active%20customer%20and%20three%20valid%20products");
  const workbook=new ExcelJS.Workbook();
- try{await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()));}catch{redirect("/imports?error=Unable%20to%20read%20this%20Excel%20file");}
+ try{await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()) as unknown as Buffer);}catch{redirect("/imports?error=Unable%20to%20read%20this%20Excel%20file");}
  const sheet=workbook.worksheets[0];if(!sheet||sheet.rowCount<2)redirect("/imports?error=The%20first%20worksheet%20has%20no%20data");
  const headers=new Map<string,number>();
  sheet.getRow(1).eachCell((cell,col)=>headers.set(headerKey(cell.value),col));
